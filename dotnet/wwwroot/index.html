@@ -3,11 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Payments - Developer Example</title>
+    <title>Global Payments – Drop-In UI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://globalpayments-samples.github.io/css/styles.css">
+    <script src="https://js.globalpay.com/v1/globalpayments.js"></script>
+    <style>
+        .gp-checkout-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .gp-checkout-layout { grid-template-columns: 1fr; }
+        }
+        .gp-order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .gp-order-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0 4px;
+            font-size: 1.05em;
+        }
+        .gp-result-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 12px;
+            line-height: 1;
+        }
+        .gp-result-icon.success { color: #16a34a; }
+        .gp-result-icon.decline { color: #dc2626; }
+        .gp-text-center { text-align: center; }
+        .gp-webhook-event {
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: #f9fafb;
+            border-left: 3px solid #0b7fd4;
+            border-radius: 2px;
+            font-size: 0.8rem;
+        }
+        .gp-webhook-log { max-height: 280px; overflow-y: auto; }
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -30,11 +72,9 @@
     </header>
 
     <div class="gp-container">
-        <!-- Page Title -->
-        <h1 class="gp-page-title">SDK Integration Examples</h1>
-        <p class="gp-page-subtitle">Explore comprehensive examples of Global Payments SDK implementations across different payment scenarios.</p>
+        <h1 class="gp-page-title">Drop-In UI – GP API Integration</h1>
+        <p class="gp-page-subtitle">Full payment lifecycle using Global Payments Drop-In UI with single-use tokenization, 3DS iframe succession, and webhook notifications.</p>
 
-        <!-- Tabs -->
         <div class="gp-tabs">
             <div class="gp-tab-list">
                 <button class="gp-tab-button active" data-tab="payment-form">Payment Form</button>
@@ -43,159 +83,240 @@
                 <button class="gp-tab-button" data-tab="recurring">Recurring Payments</button>
             </div>
 
-            <!-- Payment Form Tab -->
+            <!-- ============================================================
+                 TAB 1: PAYMENT FORM
+                 HomeMerchant layout — order summary + Drop-In UI payment panel
+                 The payment panel demonstrates iframe succession:
+                   card entry → (3DS challenge in same frame) → result
+                 ============================================================ -->
             <div class="gp-tab-content active" id="payment-form">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Credit Card Payment Form</h2>
-                        <p class="gp-card-description">
-                            Secure payment processing using Global Payments tokenization with client-side form validation.
-                        </p>
+                <div class="gp-checkout-layout">
+
+                    <!-- Order Summary (merchant cart) -->
+                    <div class="gp-card">
+                        <div class="gp-card-header">
+                            <h2 class="gp-card-title">Order Summary</h2>
+                        </div>
+                        <div class="gp-order-item">
+                            <span>Premium Subscription</span>
+                            <span>$15.00</span>
+                        </div>
+                        <div class="gp-order-item">
+                            <span>Setup Fee</span>
+                            <span>$4.99</span>
+                        </div>
+                        <div class="gp-order-total">
+                            <span>Total</span>
+                            <strong>$19.99 USD</strong>
+                        </div>
+                        <div class="gp-alert gp-alert-info" style="margin-top: 20px;">
+                            <strong>Sandbox Test Card</strong><br>
+                            4263970000005262<br>
+                            Exp: any future date &nbsp;·&nbsp; CVV: any 3 digits
+                        </div>
                     </div>
-                    
-                    <form id="payment-form" class="gp-form" action="/process-payment" method="POST">
-                        <div class="gp-form-group">
-                            <label for="amount" class="gp-label">Amount ($):</label>
-                            <input type="number" id="amount" name="amount" class="gp-input" min="0.01" step="0.01" value="10.00" required>
-                        </div>
-                        
-                        <div class="gp-form-group">
-                            <label for="billing_zip" class="gp-label">Billing Zip Code:</label>
-                            <input type="text" id="billing_zip" name="billing_zip" class="gp-input" placeholder="12345" required>
+
+                    <!-- Payment Panel — iframe succession zone -->
+                    <div class="gp-card">
+
+                        <!-- State A: Payment form (default) -->
+                        <div id="payment-form-state">
+                            <div class="gp-card-header">
+                                <h2 class="gp-card-title">Payment Details</h2>
+                                <p class="gp-card-description">Secured by Global Payments Drop-In UI</p>
+                            </div>
+                            <div class="gp-form-group">
+                                <label for="pay-amount" class="gp-label">Amount (USD):</label>
+                                <input type="number" id="pay-amount" class="gp-input" min="0.01" step="0.01" value="19.99">
+                            </div>
+                            <div class="gp-form-group">
+                                <label class="gp-label">Card Details:</label>
+                                <!-- Drop-In UI mounts its secure iframe here -->
+                                <div id="credit-card"></div>
+                            </div>
+                            <div id="pay-error" class="gp-alert gp-alert-error gp-hidden"></div>
                         </div>
 
-                        <div class="gp-form-group">
-                            <label class="gp-label">Credit Card Information:</label>
-                            <div id="credit-card"></div>
+                        <!-- State B: Processing -->
+                        <div id="payment-processing-state" class="gp-hidden gp-text-center">
+                            <div class="gp-card-header">
+                                <h2 class="gp-card-title">Processing…</h2>
+                                <p class="gp-card-description">Please do not close this window.</p>
+                            </div>
                         </div>
 
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Process Payment
-                        </button>
-                    </form>
+                        <!-- State C: Success -->
+                        <div id="payment-success-state" class="gp-hidden gp-text-center">
+                            <div class="gp-result-icon success">✓</div>
+                            <h2 class="gp-card-title">Payment Successful</h2>
+                            <div id="payment-result-details" class="gp-code-block" style="text-align:left; margin: 16px 0;"></div>
+                            <div class="gp-form-row" style="justify-content: center; gap: 12px; margin-top: 8px;">
+                                <button id="restart-btn" class="gp-button gp-button-secondary">Restart Transaction</button>
+                                <a href="https://developer.globalpayments.com/api/references-overview" target="_blank" class="gp-button gp-button-primary">View Reporting</a>
+                            </div>
+                        </div>
+
+                        <!-- State D: Declined -->
+                        <div id="payment-decline-state" class="gp-hidden gp-text-center">
+                            <div class="gp-result-icon decline">✕</div>
+                            <h2 class="gp-card-title">Payment Declined</h2>
+                            <p id="decline-message" class="gp-card-description"></p>
+                            <button id="retry-btn" class="gp-button gp-button-primary" style="margin-top: 16px;">Try Again</button>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
-            <!-- Tokenization Tab -->
+            <!-- ============================================================
+                 TAB 2: TOKENIZATION
+                 Demonstrates single-use token generation via Drop-In UI.
+                 The raw card data never reaches the merchant server.
+                 ============================================================ -->
             <div class="gp-tab-content" id="tokenization">
                 <div class="gp-card">
                     <div class="gp-card-header">
-                        <h2 class="gp-card-title">Card Tokenization</h2>
+                        <h2 class="gp-card-title">Single-Use Tokenization</h2>
                         <p class="gp-card-description">
-                            Securely tokenize payment methods for future use without storing sensitive card data.
+                            The Drop-In UI tokenizes the card in a secure iframe and returns a
+                            <code>paymentReference</code>. Your backend charges that reference once via the GP API SDK —
+                            raw card data never touches your server.
                         </p>
                     </div>
-                    
+
                     <div class="gp-alert gp-alert-info">
-                        <strong>Info:</strong> Tokens can be stored securely and used for future transactions without handling raw card data.
+                        <strong>Flow:</strong>
+                        Backend generates access token (<code>PMT_POST_Create_Single</code> scope) →
+                        Drop-In UI tokenizes card in iframe →
+                        <code>token-success</code> event fires with <code>paymentReference</code> →
+                        backend charges reference via SDK.
                     </div>
 
-                    <form id="tokenization-form" class="gp-form">
-                        <div class="gp-form-group">
-                            <label class="gp-label">Card Information for Tokenization:</label>
-                            <div id="credit-card-token"></div>
-                        </div>
-
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Generate Token
-                        </button>
-                    </form>
+                    <div class="gp-form-group">
+                        <label class="gp-label">Card Information:</label>
+                        <div id="credit-card-token"></div>
+                    </div>
 
                     <div id="token-result" class="gp-hidden">
-                        <h3 class="gp-card-title gp-mt-lg">Generated Token:</h3>
+                        <h3 class="gp-card-title" style="margin-top: 24px;">Token Response:</h3>
                         <div class="gp-code-block" id="token-display"></div>
                     </div>
+                    <div id="token-error" class="gp-alert gp-alert-error gp-hidden"></div>
                 </div>
             </div>
 
-            <!-- Webhooks Tab -->
+            <!-- ============================================================
+                 TAB 3: WEBHOOKS
+                 Production-ready webhook handler pattern.
+                 Live event log shows notifications from completed payments.
+                 ============================================================ -->
             <div class="gp-tab-content" id="webhooks">
                 <div class="gp-card">
                     <div class="gp-card-header">
                         <h2 class="gp-card-title">Webhook Integration</h2>
                         <p class="gp-card-description">
-                            Configure and test webhook endpoints for real-time payment notifications.
+                            Set <code>notifications.status_url</code> in your transaction payload to receive
+                            real-time GP API events at <code>POST /webhook</code>.
                         </p>
-                    </div>
-                    
-                    <div class="gp-code-block">
-// Example webhook handler
-app.post('/webhook', (req, res) => {
-    const signature = req.headers['x-gp-signature'];
-    const payload = req.body;
-    
-    // Verify webhook signature
-    if (verifySignature(payload, signature)) {
-        handlePaymentEvent(payload);
-        res.status(200).send('OK');
-    } else {
-        res.status(400).send('Invalid signature');
-    }
-});
                     </div>
 
                     <div class="gp-alert gp-alert-warning">
-                        <strong>Security:</strong> Always verify webhook signatures to ensure requests are from Global Payments.
+                        <strong>Security:</strong> Always verify the <code>X-GP-Signature</code> header using
+                        HMAC-SHA256 with your webhook secret before processing any event payload.
                     </div>
+
+                    <div class="gp-code-block">// Node.js / Express — production webhook handler
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    const signature  = req.headers['x-gp-signature'];
+    const expected   = crypto
+        .createHmac('sha256', process.env.GP_WEBHOOK_SECRET)
+        .update(req.body)
+        .digest('hex');
+
+    if (signature !== expected) return res.status(401).send('Unauthorized');
+
+    const event = JSON.parse(req.body.toString());
+    // event.type     → 'TRANSACTION_CREATED' | 'TRANSACTION_CAPTURED' | ...
+    // event.id       → notification ID
+    // event.content  → array of transaction objects (GP API response payload)
+
+    switch (event.type) {
+        case 'TRANSACTION_CREATED':   handleNewTransaction(event.content[0]);  break;
+        case 'TRANSACTION_CAPTURED':  handleCapture(event.content[0]);         break;
+        case 'TRANSACTION_REVERSED':  handleReversal(event.content[0]);        break;
+    }
+    res.status(200).send('OK');
+});</div>
+
+                    <h3 class="gp-card-title" style="margin-top: 24px;">Live Event Log</h3>
+                    <p class="gp-card-description">Complete a payment on Tab 1 then refresh to see the notification arrive.</p>
+                    <div id="webhook-log" class="gp-webhook-log gp-code-block">
+                        <em>No events yet. Complete a payment to see webhook notifications here.</em>
+                    </div>
+                    <button id="refresh-webhooks" class="gp-button gp-button-secondary" style="margin-top: 10px;">↻ Refresh Events</button>
                 </div>
             </div>
 
-            <!-- Recurring Payments Tab -->
+            <!-- ============================================================
+                 TAB 4: RECURRING PAYMENTS
+                 Shows the stored-credential pattern for subscription billing.
+                 ============================================================ -->
             <div class="gp-tab-content" id="recurring">
                 <div class="gp-card">
                     <div class="gp-card-header">
                         <h2 class="gp-card-title">Recurring Payments</h2>
                         <p class="gp-card-description">
-                            Set up subscription billing and recurring payment schedules.
+                            Tokenize a card once, then use the stored credential for scheduled billing cycles
+                            using <code>StoredCredentialInitiator.Merchant</code>.
                         </p>
                     </div>
-                    
-                    <form id="recurring-form" class="gp-form">
-                        <div class="gp-form-row">
-                            <div class="gp-form-group">
-                                <label for="subscription-amount" class="gp-label">Monthly Amount ($):</label>
-                                <input type="number" id="subscription-amount" name="subscription-amount" class="gp-input" min="1.00" step="0.01" value="29.99" required>
-                            </div>
-                            
-                            <div class="gp-form-group">
-                                <label for="billing-cycle" class="gp-label">Billing Cycle:</label>
-                                <select id="billing-cycle" name="billing-cycle" class="gp-select" required>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="quarterly">Quarterly</option>
-                                    <option value="annually">Annually</option>
-                                </select>
-                            </div>
-                        </div>
 
+                    <div class="gp-alert gp-alert-info">
+                        <strong>Pattern:</strong>
+                        Step 1 — Drop-In UI tokenizes the card (initial consent transaction).
+                        Step 2 — Backend schedules future charges using the stored <code>paymentReference</code>
+                        with <code>initiator: Merchant</code> and a stored credential sequence.
+                    </div>
+
+                    <div class="gp-form-row">
                         <div class="gp-form-group">
-                            <label class="gp-label">Payment Method:</label>
-                            <div id="credit-card-recurring"></div>
+                            <label for="rec-amount" class="gp-label">Amount (USD):</label>
+                            <input type="number" id="rec-amount" class="gp-input" min="1.00" step="0.01" value="29.99">
                         </div>
+                        <div class="gp-form-group">
+                            <label for="rec-cycle" class="gp-label">Billing Cycle:</label>
+                            <select id="rec-cycle" class="gp-select">
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="annually">Annually</option>
+                            </select>
+                        </div>
+                    </div>
 
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Set Up Subscription
-                        </button>
-                    </form>
+                    <div class="gp-form-group">
+                        <label class="gp-label">Card to Enrol:</label>
+                        <div id="credit-card-recurring"></div>
+                    </div>
+
+                    <div id="rec-result" class="gp-hidden">
+                        <h3 class="gp-card-title" style="margin-top: 24px;">Subscription Enrolled:</h3>
+                        <div class="gp-code-block" id="rec-display"></div>
+                    </div>
+                    <div id="rec-error" class="gp-alert gp-alert-error gp-hidden"></div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Footer -->
-    <!-- 
-        DEVELOPER NOTE: Update the following footer information to match your business:
-        - Company name and copyright year
-        - Update all links to point to your actual Terms of Service, Privacy Policy, and Refund Policy pages
-        - Refund Policy link is typically required by payment processor underwriting in addition to Terms and Privacy
-        - Ensure all linked policies are accessible and up-to-date before going live
-    -->
+        </div><!-- /gp-tabs -->
+    </div><!-- /gp-container -->
+
+    <!-- Footer
+         DEVELOPER NOTE: Replace company name and update policy links before going live.
+         Refund Policy is required by most payment processor underwriting agreements. -->
     <footer class="gp-footer">
         <div class="gp-container">
             <div class="gp-footer-content">
                 <div class="gp-footer-section">
-                    <p class="gp-footer-copyright">
-                        © 2024- Your Company Name. All rights reserved.
-                    </p>
+                    <p class="gp-footer-copyright">© 2025– Your Company Name. All rights reserved.</p>
                 </div>
                 <div class="gp-footer-section">
                     <nav class="gp-footer-nav">
@@ -208,6 +329,212 @@ app.post('/webhook', (req, res) => {
         </div>
     </footer>
 
-    <script src="https://globalpayments-samples.github.io/js/script.js"></script>
+    <script>
+    // =============================================================
+    //  Global Payments — Drop-In UI lifecycle
+    //
+    //  Flow:
+    //  1. Backend generates a limited-scope access token
+    //     (PMT_POST_Create_Single) via /access-token
+    //  2. GlobalPayments.configure() activates the SDK
+    //  3. creditCard.form() mounts a secure iframe (Drop-In UI)
+    //  4. User enters card; SDK tokenizes within the iframe (3DS
+    //     challenge also handled inside the same iframe — iframe
+    //     succession — no parent page redirect ever occurs)
+    //  5. token-success event fires with a single-use paymentReference
+    //  6. Frontend POSTs reference to /process-payment
+    //  7. Backend charges via GP API SDK; returns result
+    //  8. UI transitions to success or decline state
+    // =============================================================
+
+    // --- State helpers ---
+    const PAYMENT_STATES = [
+        'payment-form-state',
+        'payment-processing-state',
+        'payment-success-state',
+        'payment-decline-state'
+    ];
+
+    function showPaymentState(id) {
+        PAYMENT_STATES.forEach(s =>
+            document.getElementById(s).classList.toggle('gp-hidden', s !== id));
+    }
+
+    // --- SDK initialisation ---
+    async function initDropInUI() {
+        try {
+            const resp = await fetch('/access-token');
+            const data = await resp.json();
+
+            if (!data.token) throw new Error(data.error || 'No access token received');
+
+            GlobalPayments.configure({
+                accessToken: data.token,
+                env:         data.env || 'sandbox',
+                apiVersion:  '2021-03-22'
+            });
+
+            mountPaymentForm();
+            mountTokenForm();
+            mountRecurringForm();
+        } catch (err) {
+            const el = document.getElementById('pay-error');
+            el.textContent = 'Initialisation error: ' + err.message;
+            el.classList.remove('gp-hidden');
+        }
+    }
+
+    // --- Tab 1: Payment Form ---
+    function mountPaymentForm() {
+        const form = GlobalPayments.creditCard.form('#credit-card', {
+            style: 'gp-default',
+            labels: {
+                cardNumber:     'Card Number',
+                cardExpiration: 'Expiry Date',
+                cardCvv:        'CVV',
+                cardHolder:     'Cardholder Name'
+            },
+            placeholders: {
+                cardNumber:     '•••• •••• •••• ••••',
+                cardExpiration: 'MM / YY',
+                cardCvv:        '•••',
+                cardHolder:     'Full Name'
+            }
+        });
+
+        form.on('submit', () => showPaymentState('payment-processing-state'));
+
+        form.on('token-success', async (resp) => {
+            try {
+                const amount = document.getElementById('pay-amount').value;
+                const res    = await fetch('/process-payment', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        payment_reference: resp.paymentReference,
+                        amount
+                    })
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    document.getElementById('payment-result-details').textContent =
+                        JSON.stringify({
+                            transactionId: result.transactionId,
+                            amount:        result.amount,
+                            status:        result.status,
+                            card:          result.cardDetails
+                        }, null, 2);
+                    showPaymentState('payment-success-state');
+                } else {
+                    document.getElementById('decline-message').textContent =
+                        result.error || 'Payment declined by issuer.';
+                    showPaymentState('payment-decline-state');
+                }
+            } catch (err) {
+                document.getElementById('decline-message').textContent =
+                    'Network error: ' + err.message;
+                showPaymentState('payment-decline-state');
+            }
+        });
+
+        form.on('token-error', (resp) => {
+            const el = document.getElementById('pay-error');
+            el.textContent = (resp.error && resp.error.message) || 'Card tokenization failed.';
+            el.classList.remove('gp-hidden');
+            showPaymentState('payment-form-state');
+        });
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('pay-error').classList.add('gp-hidden');
+            showPaymentState('payment-form-state');
+        });
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            document.getElementById('pay-error').classList.add('gp-hidden');
+            showPaymentState('payment-form-state');
+        });
+    }
+
+    // --- Tab 2: Tokenization (token only, no charge) ---
+    function mountTokenForm() {
+        const form = GlobalPayments.creditCard.form('#credit-card-token', {
+            style: 'gp-default'
+        });
+        form.on('token-success', (resp) => {
+            document.getElementById('token-display').textContent =
+                JSON.stringify(resp, null, 2);
+            document.getElementById('token-result').classList.remove('gp-hidden');
+            document.getElementById('token-error').classList.add('gp-hidden');
+        });
+        form.on('token-error', (resp) => {
+            const el = document.getElementById('token-error');
+            el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
+            el.classList.remove('gp-hidden');
+        });
+    }
+
+    // --- Tab 4: Recurring (enrol card, display stored credential info) ---
+    function mountRecurringForm() {
+        const form = GlobalPayments.creditCard.form('#credit-card-recurring', {
+            style: 'gp-default'
+        });
+        form.on('token-success', (resp) => {
+            const amount = document.getElementById('rec-amount').value;
+            const cycle  = document.getElementById('rec-cycle').value;
+            document.getElementById('rec-display').textContent = JSON.stringify({
+                paymentReference: resp.paymentReference,
+                amount,
+                billingCycle: cycle,
+                nextStep: 'POST paymentReference to /process-payment with ' +
+                          'storedCredential.initiator=Merchant for subsequent charges'
+            }, null, 2);
+            document.getElementById('rec-result').classList.remove('gp-hidden');
+            document.getElementById('rec-error').classList.add('gp-hidden');
+        });
+        form.on('token-error', (resp) => {
+            const el = document.getElementById('rec-error');
+            el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
+            el.classList.remove('gp-hidden');
+        });
+    }
+
+    // --- Tab 3: Webhook event log ---
+    async function loadWebhookEvents() {
+        try {
+            const resp   = await fetch('/webhook-events');
+            const events = await resp.json();
+            const log    = document.getElementById('webhook-log');
+
+            if (!Array.isArray(events) || !events.length) {
+                log.innerHTML = '<em>No events yet. Complete a payment to see webhook notifications here.</em>';
+                return;
+            }
+            log.innerHTML = events.map(e => `
+                <div class="gp-webhook-event">
+                    <strong>${e.type || 'EVENT'}</strong> &nbsp;·&nbsp; ${e.receivedAt || ''}
+                    <br><small>${JSON.stringify(e).substring(0, 240)}…</small>
+                </div>`).join('');
+        } catch { /* silent — webhook endpoint may not be reachable in dev */ }
+    }
+
+    document.getElementById('refresh-webhooks')
+        .addEventListener('click', loadWebhookEvents);
+
+    // --- Tab switching ---
+    document.querySelectorAll('.gp-tab-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.gp-tab-button')
+                .forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.gp-tab-content')
+                .forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
+            if (btn.dataset.tab === 'webhooks') loadWebhookEvents();
+        });
+    });
+
+    // Boot
+    initDropInUI();
+    </script>
 </body>
 </html>

@@ -8,4 +8,4 @@ composer install
 
 # Start the server
 PORT="${PORT:-8000}"
-php -S 0.0.0.0:$PORT
+php -S 0.0.0.0:$PORT router.php

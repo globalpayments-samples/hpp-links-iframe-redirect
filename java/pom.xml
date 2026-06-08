@@ -30,6 +30,13 @@
             <version>3.0.0</version>
         </dependency>
 
+        <!-- Jackson — JSON serialisation for API calls and webhook payloads -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.1</version>
+        </dependency>
+
         <!-- Servlet API -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
