@@ -36,7 +36,7 @@ const gpConfig                  = new GpApiConfig();
 gpConfig.appId                  = process.env.GP_APP_ID;
 gpConfig.appKey                 = process.env.GP_APP_KEY;
 gpConfig.channel                = Channel.CardNotPresent;
-gpConfig.environment            = Environment.TEST;
+gpConfig.environment            = Environment.Test;
 gpConfig.merchantId             = process.env.GP_MERCHANT_ID;
 gpConfig.accessTokenInfo        = {
     transactionProcessingAccountName: process.env.GP_ACCOUNT_NAME

@@ -1,0 +1,7 @@
+title = "GP Drop-In UI – gitleaks configuration"
+
+[allowlist]
+  description = "Sandbox-only demo credentials in .env.sample files are intentionally public"
+  paths = [
+    '''.env\.sample$''',
+  ]

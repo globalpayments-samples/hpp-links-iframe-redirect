@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.global.api.ServicesContainer;
-import com.global.api.entities.AccessTokenInfo;
+import com.global.api.entities.gpApi.entities.AccessTokenInfo;
 import com.global.api.entities.Transaction;
 import com.global.api.entities.exceptions.ApiException;
 import com.global.api.entities.exceptions.ConfigurationException;
@@ -117,8 +117,9 @@ public class ProcessPaymentServlet extends HttpServlet {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://apis.sandbox.globalpay.com/ucp/accesstoken"))
-                    .header("Content-Type", "application/json")
-                    .header("X-GP-Version",  "2021-03-22")
+                    .header("Content-Type",    "application/json")
+                    .header("X-GP-Version",    "2021-03-22")
+                    .header("Accept-Encoding", "identity")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 

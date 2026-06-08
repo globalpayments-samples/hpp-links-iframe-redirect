@@ -15,9 +15,8 @@ using System.Text.Json;
 using dotenv.net;
 using GlobalPayments.Api;
 using GlobalPayments.Api.Entities;
-using GlobalPayments.Api.Entities.Enums;
 using GlobalPayments.Api.PaymentMethods;
-using GlobalPayments.Api.ServiceConfigs.Gateways;
+using GpEnvironment = GlobalPayments.Api.Entities.Environment;
 
 namespace DropInUISample;
 
@@ -52,7 +51,7 @@ public class Program
             AppId       = Env("GP_APP_ID"),
             AppKey      = Env("GP_APP_KEY"),
             Channel     = Channel.CardNotPresent,
-            Environment = GlobalPayments.Api.Entities.Enums.Environment.TEST,
+            Environment = GpEnvironment.TEST,
             MerchantId  = Env("GP_MERCHANT_ID"),
             AccessTokenInfo = new AccessTokenInfo
             {
@@ -82,7 +81,11 @@ public class Program
                 permissions = new[] { "PMT_POST_Create_Single" }
             });
 
-            using var http = new HttpClient();
+            using var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            };
+            using var http = new HttpClient(handler);
             http.DefaultRequestHeaders.Add("X-GP-Version", "2021-03-22");
 
             var gpRes  = await http.PostAsync(
@@ -167,7 +170,8 @@ public class Program
                 var evt = JsonSerializer.Deserialize<JsonElement>(payload);
                 WebhookEvents.Enqueue(new { receivedAt = DateTime.UtcNow.ToString("o"), raw = evt });
                 while (WebhookEvents.Count > 20) WebhookEvents.TryDequeue(out _);
-                Console.WriteLine($"[Webhook] type={evt.TryGetProperty("type", out var t) ? t : "?"}");
+                var evtType = evt.TryGetProperty("type", out var t) ? t.ToString() : "?";
+                Console.WriteLine($"[Webhook] type={evtType}");
                 return Results.Ok("OK");
             }
             catch

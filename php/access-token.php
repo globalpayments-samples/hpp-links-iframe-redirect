@@ -32,6 +32,7 @@ $ch = curl_init('https://apis.sandbox.globalpay.com/ucp/accesstoken');
 curl_setopt_array($ch, [
     CURLOPT_POST           => true,
     CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_ENCODING       => '',   // auto-decode gzip/deflate responses
     CURLOPT_HTTPHEADER     => [
         'Content-Type: application/json',
         'X-GP-Version: 2021-03-22',
