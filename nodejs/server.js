@@ -29,6 +29,9 @@ const webhookEvents = [];
 
 app.use(express.static('.'));
 app.use(express.urlencoded({ extended: true }));
+// Preserve raw body for /webhook (needed for HMAC signature verification);
+// express.json() must come AFTER so it doesn't consume the stream first.
+app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // ─── GP API SDK configuration ────────────────────────────────────────────────
@@ -143,6 +146,15 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 // Used by the UI to tail the in-memory webhook event log.
 app.get('/webhook-events', (_req, res) => {
     res.json(webhookEvents);
+});
+
+// ─── JSON parse error handler ────────────────────────────────────────────────
+// Catches malformed request bodies and returns a clean JSON 400 instead of HTML.
+app.use((err, req, res, _next) => {
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ success: false, error: 'Invalid JSON body' });
+    }
+    res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
