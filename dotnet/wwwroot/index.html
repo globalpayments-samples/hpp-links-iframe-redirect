@@ -360,6 +360,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
             document.getElementById(s).classList.toggle('gp-hidden', s !== id));
     }
 
+    // Track which tabs have already had their Drop-In UI mounted
+    const mounted = { payment: false, tokenization: false, recurring: false };
+
     // --- SDK initialisation ---
     async function initDropInUI() {
         try {
@@ -374,9 +377,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
                 apiVersion:  '2021-03-22'
             });
 
+            // Only mount the initially-visible tab — others are lazy-loaded on click
             mountPaymentForm();
-            mountTokenForm();
-            mountRecurringForm();
         } catch (err) {
             const el = document.getElementById('pay-error');
             el.textContent = 'Initialisation error: ' + err.message;
@@ -386,6 +388,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 
     // --- Tab 1: Payment Form ---
     function mountPaymentForm() {
+        if (mounted.payment) return;
+        mounted.payment = true;
         const form = GlobalPayments.creditCard.form('#credit-card', {
             style: 'gp-default',
             labels: {
@@ -457,6 +461,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 
     // --- Tab 2: Tokenization (token only, no charge) ---
     function mountTokenForm() {
+        if (mounted.tokenization) return;
+        mounted.tokenization = true;
         const form = GlobalPayments.creditCard.form('#credit-card-token', {
             style: 'gp-default'
         });
@@ -475,6 +481,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 
     // --- Tab 4: Recurring (enrol card, display stored credential info) ---
     function mountRecurringForm() {
+        if (mounted.recurring) return;
+        mounted.recurring = true;
         const form = GlobalPayments.creditCard.form('#credit-card-recurring', {
             style: 'gp-default'
         });
@@ -529,7 +537,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
                 .forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(btn.dataset.tab).classList.add('active');
-            if (btn.dataset.tab === 'webhooks') loadWebhookEvents();
+
+            // Lazy-mount Drop-In UI only when the tab first becomes visible
+            if (btn.dataset.tab === 'tokenization') mountTokenForm();
+            if (btn.dataset.tab === 'recurring')    mountRecurringForm();
+            if (btn.dataset.tab === 'webhooks')     loadWebhookEvents();
         });
     });
 
