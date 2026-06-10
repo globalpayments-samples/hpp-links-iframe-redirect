@@ -1,92 +1,102 @@
 services:
   nodejs:
-    build: 
+    build:
       context: ./nodejs
       dockerfile: Dockerfile
     ports:
       - "8001:8000"
     environment:
       - PORT=8000
-      - PUBLIC_API_KEY=${PUBLIC_API_KEY}
-      - SECRET_API_KEY=${SECRET_API_KEY}
+      - GP_APP_ID=${GP_APP_ID}
+      - GP_APP_KEY=${GP_APP_KEY}
+      - GP_MERCHANT_ID=${GP_MERCHANT_ID}
+      - GP_ACCOUNT_NAME=${GP_ACCOUNT_NAME}
     networks:
       - payments
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/config"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/webhook-events"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
 
   python:
-    build: 
+    build:
       context: ./python
       dockerfile: Dockerfile
     ports:
       - "8002:8000"
     environment:
       - PORT=8000
-      - PUBLIC_API_KEY=${PUBLIC_API_KEY}
-      - SECRET_API_KEY=${SECRET_API_KEY}
+      - GP_APP_ID=${GP_APP_ID}
+      - GP_APP_KEY=${GP_APP_KEY}
+      - GP_MERCHANT_ID=${GP_MERCHANT_ID}
+      - GP_ACCOUNT_NAME=${GP_ACCOUNT_NAME}
     networks:
       - payments
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/config"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/webhook-events"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
 
   php:
-    build: 
+    build:
       context: ./php
       dockerfile: Dockerfile
     ports:
       - "8003:8000"
     environment:
-      - PUBLIC_API_KEY=${PUBLIC_API_KEY}
-      - SECRET_API_KEY=${SECRET_API_KEY}
+      - GP_APP_ID=${GP_APP_ID}
+      - GP_APP_KEY=${GP_APP_KEY}
+      - GP_MERCHANT_ID=${GP_MERCHANT_ID}
+      - GP_ACCOUNT_NAME=${GP_ACCOUNT_NAME}
     networks:
       - payments
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/config.php"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/webhook-events"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
 
   java:
-    build: 
+    build:
       context: ./java
       dockerfile: Dockerfile
     ports:
       - "8004:8000"
     environment:
-      - PUBLIC_API_KEY=${PUBLIC_API_KEY}
-      - SECRET_API_KEY=${SECRET_API_KEY}
+      - GP_APP_ID=${GP_APP_ID}
+      - GP_APP_KEY=${GP_APP_KEY}
+      - GP_MERCHANT_ID=${GP_MERCHANT_ID}
+      - GP_ACCOUNT_NAME=${GP_ACCOUNT_NAME}
     networks:
       - payments
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/config"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/webhook-events"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 60s
 
   dotnet:
-    build: 
+    build:
       context: ./dotnet
       dockerfile: Dockerfile
     ports:
       - "8006:8000"
     environment:
       - ASPNETCORE_URLS=http://+:8000
-      - PUBLIC_API_KEY=${PUBLIC_API_KEY}
-      - SECRET_API_KEY=${SECRET_API_KEY}
+      - GP_APP_ID=${GP_APP_ID}
+      - GP_APP_KEY=${GP_APP_KEY}
+      - GP_MERCHANT_ID=${GP_MERCHANT_ID}
+      - GP_ACCOUNT_NAME=${GP_ACCOUNT_NAME}
     networks:
       - payments
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/config"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/webhook-events"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -94,7 +104,7 @@ services:
 
   # Test runner container
   tests:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.tests
     depends_on:

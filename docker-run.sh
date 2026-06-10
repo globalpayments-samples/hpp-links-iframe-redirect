@@ -35,9 +35,11 @@ print_usage() {
 check_env() {
     if [ ! -f .env ]; then
         echo -e "${RED}❌ .env file not found${NC}"
-        echo -e "${YELLOW}Please create .env file with your API keys:${NC}"
-        echo "PUBLIC_API_KEY=your_public_key"
-        echo "SECRET_API_KEY=your_secret_key"
+        echo -e "${YELLOW}Please create .env file with your GP API credentials:${NC}"
+        echo "GP_APP_ID=your_app_id"
+        echo "GP_APP_KEY=your_app_key"
+        echo "GP_MERCHANT_ID=your_merchant_id"
+        echo "GP_ACCOUNT_NAME=transaction_processing"
         exit 1
     fi
     

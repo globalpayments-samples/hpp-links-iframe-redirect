@@ -1,99 +1,95 @@
-# Global Payments SDK Starter Template
+# Global Payments Drop-In UI – Iframe Succession Sample
 
-This starter template provides a customizable foundation for Global Payments SDK integration across multiple programming languages. Each implementation includes basic SDK setup, configuration management, and placeholder endpoints that you can modify for your specific payment use cases.
+Demonstrates the full GP API Drop-In UI payment lifecycle across five backend frameworks. Each implementation shows **iframe succession** — card entry, 3DS challenge, and the result all handled inside a single iframe with no parent-page redirect.
 
 ## Available Implementations
 
-- [.NET Core](./dotnet/) - ASP.NET Core web application
-- [Java](./java/) - Jakarta EE servlet-based web application
-- [Node.js](./nodejs/) - Express.js web application
-- [PHP](./php/) - PHP web application
-- [Python](./python/) - Flask web application
+- [.NET Core](./dotnet/) - ASP.NET Core minimal API
+- [Java](./java/) - Jakarta EE / Tomcat
+- [Node.js](./nodejs/) - Express.js
+- [PHP](./php/) - PHP built-in server
+- [Python](./python/) - Flask
 
-## Template Features
+## How It Works
 
-- **SDK Configuration** - Basic setup with environment variables
-- **Placeholder Endpoints** - Ready-to-customize API endpoints  
-- **Error Handling** - Basic error handling structure
-- **Client Integration** - HTML form with hosted fields tokenization
-- **Multiple Languages** - Consistent structure across all implementations
+```
+Browser                          Backend                       GP API
+  |                                 |                             |
+  |-- GET /access-token ----------->|                             |
+  |                                 |-- POST /ucp/accesstoken --->|
+  |<-- { token } -------------------|<-- { token } ---------------|
+  |                                 |                             |
+  | GlobalPayments.configure(token) |                             |
+  | creditCard.form() mounts iframe |                             |
+  | User enters card in iframe      |                             |
+  | (3DS challenge in same iframe)  |                             |
+  |<-- token-success { paymentReference }                         |
+  |                                 |                             |
+  |-- POST /process-payment ------->|                             |
+  |   { paymentReference, amount }  |-- POST /ucp/transactions -->|
+  |                                 |<-- { id, status, ... } -----|
+  |<-- { transactionId, status } ---|                             |
+```
 
-## Customization Options
+## Endpoints (identical across all frameworks)
 
-Each template includes:
-
-1. **Basic SDK Setup**
-   - Environment variable configuration
-   - Service URL configuration
-   - API key management
-
-2. **Starter Endpoints**
-   - GET `/config` - Configuration endpoint
-   - POST `/process-payment` - Payment processing template
-   - Commented examples for additional endpoints (authorize, capture, refund, etc.)
-
-3. **Ready-to-Modify Structure**
-   - TODO comments for customization points
-   - Example payment logic you can adapt
-   - Placeholder functions for various payment flows
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
+| `POST` | `/process-payment` | Charges the single-use `paymentReference` returned by the Drop-In UI |
+| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `GET` | `/webhook-events` | Returns last 20 webhook events for the live UI log |
 
 ## Quick Start
 
-1. **Copy the template** - Copy this directory to start your new project
-2. **Choose your language** - Navigate to any implementation directory (nodejs, python, php, java, dotnet)
-3. **Set up credentials** - Copy `.env.sample` to `.env` and add your Global Payments API keys
-4. **Run the server** - Execute `./run.sh` to install dependencies and start the server
-5. **Customize** - Modify the code for your specific payment use case
+### 1. Set up credentials
 
-## Use Cases You Can Build
+Copy the `.env.sample` in your chosen framework directory to `.env` and fill in your GP API sandbox credentials:
 
-This template can be adapted for various payment scenarios:
+```
+GP_APP_ID=your_app_id
+GP_APP_KEY=your_app_key
+GP_MERCHANT_ID=your_merchant_id
+GP_ACCOUNT_NAME=transaction_processing
+```
 
-- **Basic Charges** - Simple one-time payments
-- **Authorization/Capture** - Two-step payment processing
-- **Subscriptions** - Recurring payment processing
-- **Refunds** - Payment reversal functionality
-- **Multi-step Checkouts** - Complex payment flows
-- **Payment Methods** - Credit cards, ACH, alternative payments
+### 2. Run a framework
+
+```bash
+cd nodejs    # or python / php / java / dotnet
+./run.sh
+```
+
+Open `http://localhost:8000` in your browser.
+
+### 3. Test a payment
+
+Use the sandbox test card on the Payment Form tab:
+
+```
+Card number : 4263970000005262
+Expiry      : any future date
+CVV         : any 3 digits
+```
+
+## Docker
+
+Run all five frameworks simultaneously:
+
+```bash
+cp nodejs/.env.sample .env   # fill in your credentials
+./docker-run.sh start
+```
+
+| Framework | URL |
+|-----------|-----|
+| Node.js   | http://localhost:8001 |
+| Python    | http://localhost:8002 |
+| PHP       | http://localhost:8003 |
+| Java      | http://localhost:8004 |
+| .NET      | http://localhost:8006 |
 
 ## Prerequisites
 
-- Global Payments account with API credentials
-- Development environment for your chosen language
-- Package manager (npm, pip, composer, maven, dotnet)
-
-## Customization Guide
-
-### Adding New Endpoints
-
-Each implementation includes commented examples for common payment operations:
-
-```javascript
-// Authorization only
-app.post('/authorize', ...)
-
-// Capture authorized payment  
-app.post('/capture', ...)
-
-// Process refund
-app.post('/refund', ...)
-
-// Get transaction details
-app.get('/transaction/:id', ...)
-```
-
-### Modifying Payment Logic
-
-1. Update the `/process-payment` endpoint for your specific flow
-2. Add validation for your required fields
-3. Customize error handling and responses
-4. Add logging and monitoring as needed
-
-### Production Considerations
-
-Enhance the template for production use with:
-- Input validation and sanitization
-- Comprehensive error handling and logging
-- Security headers and rate limiting
-- PCI compliance measures
-- Monitoring and alerting
+- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
+- The runtime for your chosen language (Node 18+, Python 3.9+, PHP 8+, Java 17+, .NET 8+)
