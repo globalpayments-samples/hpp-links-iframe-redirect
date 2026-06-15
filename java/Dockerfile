@@ -10,24 +10,22 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+# Runtime stage — deploy the WAR straight to Tomcat.
+# (Running `mvn cargo:run` inside a container is unreliable: it dies with
+#  NoClassDefFoundError on Cargo's JVM launcher, so the container exits.)
+FROM tomcat:10.1-jdk21-temurin
 
-WORKDIR /app
+# Serve on 8000 (the port convention shared by every framework) instead of
+# Tomcat's default 8080, and install wget for the container healthcheck.
+RUN sed -i 's/port="8080"/port="8000"/' /usr/local/tomcat/conf/server.xml && \
+    apt-get update && apt-get install -y --no-install-recommends wget && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Maven (needed for Cargo plugin)
-RUN apk add --no-cache maven
-
-# Copy built application and pom.xml
-COPY --from=builder /app/target ./target
-COPY --from=builder /app/pom.xml .
-COPY --from=builder /root/.m2 /root/.m2
-
-# Create non-root user
-RUN addgroup -g 1001 -S javauser && \
-    adduser -S javauser -u 1001
-USER javauser
+# Deploy as the ROOT context so /access-token, /process-payment, etc. resolve
+# at the server root (matching the Cargo cargo.context=/ that was used before).
+RUN rm -rf /usr/local/tomcat/webapps/*
+COPY --from=builder /app/target/ROOT.war /usr/local/tomcat/webapps/ROOT.war
 
 EXPOSE 8000
 
-CMD ["mvn", "cargo:run", "-Dquiet"]
+CMD ["catalina.sh", "run"]

@@ -18,8 +18,11 @@ WORKDIR /app
 # Copy built application
 COPY --from=builder /app/out .
 
-# Create non-root user
-# RUN useradd --create-home --shell /bin/bash app
+# wget is needed for the container healthcheck (not in the aspnet image)
+RUN apt-get update && apt-get install -y --no-install-recommends wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# The aspnet:9.0 image ships a built-in non-root `app` user
 USER app
 
 EXPOSE 8000

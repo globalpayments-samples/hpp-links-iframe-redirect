@@ -90,9 +90,11 @@ stop_services() {
 run_tests() {
     echo -e "${BLUE}🧪 Running E2E tests...${NC}"
     
-    # Make sure test output directories exist
+    # Make sure test output directories exist and are writable by the
+    # (non-root) Playwright container user across host UID differences.
     mkdir -p test-results playwright-report
-    
+    chmod 777 test-results playwright-report
+
     # Start services if not running
     echo -e "${YELLOW}📋 Ensuring services are running...${NC}"
     $COMPOSE up -d nodejs python php java dotnet
@@ -101,9 +103,10 @@ run_tests() {
     echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
     sleep 30
     
-    # Run tests
-    $COMPOSE --profile testing up --build tests
-    
+    # Run tests. `run --rm` returns the suite's exit code and exits cleanly;
+    # `up` would stay attached to the long-running services and never return.
+    $COMPOSE --profile testing run --rm --build tests
+
     echo -e "${GREEN}✅ Tests completed${NC}"
     echo "Test results available in ./test-results/"
     echo "HTML report available in ./playwright-report/"
@@ -121,8 +124,8 @@ run_single_test() {
     # Start specific service
     $COMPOSE up -d $impl
     
-    # Run tests with filter
-    IMPLEMENTATION_FILTER=$impl $COMPOSE --profile testing up --build tests
+    # Run tests with filter (see run_tests for why `run --rm`, not `up`)
+    IMPLEMENTATION_FILTER=$impl $COMPOSE --profile testing run --rm --build tests
 }
 
 show_logs() {
