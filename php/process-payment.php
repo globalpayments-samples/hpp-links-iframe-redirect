@@ -14,6 +14,7 @@ require_once 'vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use GlobalPayments\Api\Entities\Exceptions\ApiException;
+use GlobalPayments\Api\Entities\GpApi\AccessTokenInfo;
 use GlobalPayments\Api\PaymentMethods\CreditCardData;
 use GlobalPayments\Api\ServiceConfigs\Gateways\GpApiConfig;
 use GlobalPayments\Api\ServicesContainer;
@@ -29,6 +30,14 @@ $config->appId       = $_ENV['GP_APP_ID'];
 $config->appKey      = $_ENV['GP_APP_KEY'];
 $config->channel     = \GlobalPayments\Api\Entities\Enums\Channel::CardNotPresent;
 $config->environment = \GlobalPayments\Api\Entities\Enums\Environment::TEST;
+$config->merchantId  = $_ENV['GP_MERCHANT_ID'];
+
+// Pin the transaction-processing account so charges resolve to the right
+// account (parity with the Node/Java/.NET implementations).
+$accessTokenInfo = new AccessTokenInfo();
+$accessTokenInfo->transactionProcessingAccountName = $_ENV['GP_ACCOUNT_NAME'];
+$config->accessTokenInfo = $accessTokenInfo;
+
 ServicesContainer::configureService($config);
 
 // ─── Validate input ──────────────────────────────────────────────────────────

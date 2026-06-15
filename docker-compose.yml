@@ -120,6 +120,8 @@ services:
         condition: service_healthy
     environment:
       - CI=true
+      # Forwarded by `docker-run.sh test:single <impl>` to run one framework.
+      - IMPLEMENTATION_FILTER=${IMPLEMENTATION_FILTER:-}
     networks:
       - payments
     volumes:

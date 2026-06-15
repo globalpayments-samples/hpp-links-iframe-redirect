@@ -1,0 +1,9 @@
+# Node / Playwright tooling at repo root (test harness)
+node_modules/
+
+# Test output (mounted out of the tests container)
+test-results/
+playwright-report/
+
+# Local env files
+.env

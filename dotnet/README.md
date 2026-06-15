@@ -1,108 +1,59 @@
-# .NET Card Payment Example
+# .NET (ASP.NET Core) — GP API Drop-In UI
 
-This example demonstrates card payment processing using ASP.NET Core and the Global Payments SDK.
+ASP.NET Core minimal-API implementation of the GP API Drop-In UI iframe-succession
+sample. Exposes the same four endpoints as the other frameworks and serves the
+shared Drop-In UI `index.html` from `wwwroot/`.
+
+Charges go through the official **`GlobalPayments.Api`** SDK; the access token is
+minted with a direct call to the GP API `accesstoken` endpoint so the App Key
+never reaches the browser.
 
 ## Requirements
 
-- .NET 6.0 or later
-- Global Payments account and API credentials
+- .NET SDK 9.0 or later
+- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure
 
-- `Program.cs` - Main application file containing server setup and payment processing
-- `wwwroot/index.html` - Client-side payment form
-- `.env.sample` - Template for environment variables
-- `run.sh` - Convenience script to run the application
-- `appsettings.json` - Application configuration file
+- `Program.cs` — minimal-API server: endpoints + GP API SDK configuration
+- `wwwroot/index.html` — shared Drop-In UI frontend
+- `dotnet.csproj` — dependencies (`GlobalPayments.Api`, `DotEnv.Net`)
+- `.env.sample` — template for environment variables
+- `run.sh` — restores packages and runs the server
 
 ## Setup
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
+1. Copy `.env.sample` to `.env` and fill in your GP API sandbox credentials:
    ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
+   GP_APP_ID=your_app_id
+   GP_APP_KEY=your_app_key
+   GP_MERCHANT_ID=your_merchant_id
+   GP_ACCOUNT_NAME=transaction_processing
    ```
-4. Install dependencies:
+2. Run the application:
    ```bash
-   dotnet restore
+   ./run.sh        # runs: dotnet restore && dotnet run
    ```
-5. Run the application:
-   ```bash
-   ./run.sh
-   ```
-   Or manually:
-   ```bash
-   dotnet run
-   ```
+   Open http://localhost:8000.
 
-## Implementation Details
+## Endpoints
 
-### Server Setup
-The application uses ASP.NET Core's minimal API approach to create a lightweight web server that:
-- Serves static files from wwwroot directory
-- Processes payment requests
-- Provides configuration endpoint for client-side SDK
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
+| `POST` | `/process-payment` | Charges the single-use `payment_reference` from the Drop-In UI |
+| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `GET` | `/webhook-events` | Returns the last 20 webhook events for the live UI log |
 
-### SDK Configuration
-The Global Payments SDK is configured using environment variables and the PorticoConfig class:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
+## Test card (sandbox)
 
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns appropriate HTTP status codes
-- Provides meaningful error messages
-
-## API Endpoints
-
-### GET /config
-Returns public API key for client-side SDK initialization.
-
-Response:
-```json
-{
-    "publicApiKey": "pk_test_xxx"
-}
+```
+Card number : 4263970000005262
+Expiry      : any future date
+CVV         : any 3 digits
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+## Production considerations
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
-
-Response (Success):
-```json
-{
-    "message": "Payment successful! Transaction ID: xxx"
-}
-```
-
-Response (Error):
-```json
-{
-    "detail": "Error message"
-}
-```
-
-## Security Considerations
-
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
+- Verify the `X-GP-Signature` HMAC on incoming webhooks (the `HmacSha256Hex` helper and a commented block in `Program.cs` show how).
+- Serve over HTTPS and add input validation, rate limiting, and structured logging.

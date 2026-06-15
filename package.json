@@ -5,7 +5,10 @@
   "type": "commonjs",
   "scripts": {
     "start": "node nodejs/server.js",
-    "dev": "node nodejs/server.js"
+    "dev": "node nodejs/server.js",
+    "test": "playwright test",
+    "test:ci": "playwright test",
+    "test:single": "playwright test --project"
   },
   "keywords": [
     "payments",
@@ -15,5 +18,8 @@
   ],
   "author": "",
   "license": "ISC",
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "@playwright/test": "1.53.1"
+  }
 }

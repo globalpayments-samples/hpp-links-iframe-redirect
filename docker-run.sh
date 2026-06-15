@@ -11,6 +11,18 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Resolve the Compose command: prefer the v2 plugin (`docker compose`),
+# fall back to the legacy `docker-compose` binary for older installs.
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE="docker-compose"
+else
+    echo -e "${RED}❌ Docker Compose not found${NC}"
+    echo -e "${YELLOW}Install the Compose plugin: https://docs.docker.com/compose/install/${NC}"
+    exit 1
+fi
+
 print_usage() {
     echo "Usage: $0 {build|start|stop|test|logs|clean|status}"
     echo ""
@@ -48,16 +60,16 @@ check_env() {
 
 build_images() {
     echo -e "${BLUE}🔨 Building Docker images...${NC}"
-    docker-compose build --parallel
+    $COMPOSE build --parallel
     echo -e "${GREEN}✅ All images built successfully${NC}"
 }
 
 start_services() {
     echo -e "${BLUE}🚀 Starting payment services...${NC}"
-    docker-compose up -d nodejs python php java dotnet
+    $COMPOSE up -d nodejs python php java dotnet
 
     echo -e "${YELLOW}⏳ Waiting for services to be healthy...${NC}"
-    docker-compose ps
+    $COMPOSE ps
 
     echo -e "${GREEN}✅ All services started${NC}"
     echo ""
@@ -71,7 +83,7 @@ start_services() {
 
 stop_services() {
     echo -e "${BLUE}🛑 Stopping all services...${NC}"
-    docker-compose down
+    $COMPOSE down
     echo -e "${GREEN}✅ All services stopped${NC}"
 }
 
@@ -83,14 +95,14 @@ run_tests() {
     
     # Start services if not running
     echo -e "${YELLOW}📋 Ensuring services are running...${NC}"
-    docker-compose up -d nodejs python php java dotnet
+    $COMPOSE up -d nodejs python php java dotnet
 
     # Wait for services to be healthy
     echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
     sleep 30
     
     # Run tests
-    docker-compose --profile testing up --build tests
+    $COMPOSE --profile testing up --build tests
     
     echo -e "${GREEN}✅ Tests completed${NC}"
     echo "Test results available in ./test-results/"
@@ -107,20 +119,20 @@ run_single_test() {
     echo -e "${BLUE}🧪 Running tests for ${impl}...${NC}"
     
     # Start specific service
-    docker-compose up -d $impl
+    $COMPOSE up -d $impl
     
     # Run tests with filter
-    IMPLEMENTATION_FILTER=$impl docker-compose --profile testing up --build tests
+    IMPLEMENTATION_FILTER=$impl $COMPOSE --profile testing up --build tests
 }
 
 show_logs() {
     local service=$1
     if [ -z "$service" ]; then
         echo -e "${BLUE}📋 Showing logs for all services...${NC}"
-        docker-compose logs -f
+        $COMPOSE logs -f
     else
         echo -e "${BLUE}📋 Showing logs for ${service}...${NC}"
-        docker-compose logs -f $service
+        $COMPOSE logs -f $service
     fi
 }
 
@@ -130,7 +142,7 @@ clean_all() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}🧹 Cleaning up...${NC}"
-        docker-compose down -v --rmi all --remove-orphans
+        $COMPOSE down -v --rmi all --remove-orphans
         docker system prune -f
         echo -e "${GREEN}✅ Cleanup completed${NC}"
     else
@@ -140,7 +152,7 @@ clean_all() {
 
 show_status() {
     echo -e "${BLUE}📊 Service Status:${NC}"
-    docker-compose ps
+    $COMPOSE ps
     echo ""
     echo -e "${BLUE}💾 Images:${NC}"
     docker images | grep -E "(payments|test)" || echo "No images found"

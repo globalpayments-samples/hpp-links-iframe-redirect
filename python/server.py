@@ -6,6 +6,10 @@ Endpoints:
   POST /process-payment  — charge a single-use token returned by the Drop-In UI
   POST /webhook          — receive GP API transaction notifications
   GET  /webhook-events   — tail recent webhook events (for the live UI log)
+
+NOTE: Unlike the Node/PHP/Java/.NET samples, this calls the GP API REST endpoints
+directly via `requests` because Global Payments does not publish an official
+Python server SDK. The HTTP contract exposed to the frontend is identical.
 """
 
 import hashlib

@@ -168,9 +168,20 @@ public class Program
             try
             {
                 var evt = JsonSerializer.Deserialize<JsonElement>(payload);
-                WebhookEvents.Enqueue(new { receivedAt = DateTime.UtcNow.ToString("o"), raw = evt });
-                while (WebhookEvents.Count > 20) WebhookEvents.TryDequeue(out _);
                 var evtType = evt.TryGetProperty("type", out var t) ? t.ToString() : "?";
+                var evtId   = evt.TryGetProperty("id", out var i) ? i.ToString() : "";
+
+                // Flatten the event at the top level (receivedAt + original fields)
+                // so the live UI log can read type/id directly, matching the other
+                // four frameworks.
+                WebhookEvents.Enqueue(new
+                {
+                    receivedAt = DateTime.UtcNow.ToString("o"),
+                    type       = evtType,
+                    id         = evtId,
+                    payload    = evt
+                });
+                while (WebhookEvents.Count > 20) WebhookEvents.TryDequeue(out _);
                 Console.WriteLine($"[Webhook] type={evtType}");
                 return Results.Ok("OK");
             }

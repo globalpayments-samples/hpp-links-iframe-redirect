@@ -1,121 +1,77 @@
-# Python Card Payment Example
+# Python (Flask) — GP API Drop-In UI
 
-This example demonstrates card payment processing using Flask and the Global Payments SDK.
+Flask implementation of the GP API Drop-In UI iframe-succession sample. Exposes
+the same four endpoints as the other frameworks and serves the shared Drop-In UI
+`index.html`.
+
+## Why no SDK (unlike the other frameworks)
+
+The Node, PHP, Java, and .NET samples charge through the official Global Payments
+server SDK. **There is no official Global Payments server SDK for Python**, so
+this implementation talks to the GP API REST endpoints directly with `requests`:
+
+- `POST /ucp/accesstoken` — obtain an access token
+- `POST /ucp/transactions` — charge the single-use payment reference
+
+This is the correct approach for Python, not a workaround — the behaviour and the
+HTTP contract exposed to the frontend are identical to the SDK-based frameworks.
 
 ## Requirements
 
-- Python 3.7 or later
-- pip (Python Package Installer)
-- Global Payments account and API credentials
+- Python 3.9 or later
+- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure
 
-- `server.py` - Main application file containing server setup and payment processing
-- `index.html` - Client-side payment form
-- `requirements.txt` - Project dependencies
-- `.env.sample` - Template for environment variables
-- `run.sh` - Convenience script to run the application
+- `server.py` — Flask server: endpoints + GP API REST calls
+- `index.html` — shared Drop-In UI frontend
+- `requirements.txt` — dependencies (Flask, requests, gunicorn, python-dotenv)
+- `.env.sample` — template for environment variables
+- `run.sh` — convenience script to create a venv, install deps, and run
 
 ## Setup
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
+1. Copy `.env.sample` to `.env` and fill in your GP API sandbox credentials:
    ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
+   GP_APP_ID=your_app_id
+   GP_APP_KEY=your_app_key
+   GP_MERCHANT_ID=your_merchant_id
+   GP_ACCOUNT_NAME=transaction_processing
    ```
-4. Create and activate a virtual environment (recommended):
+2. Create and activate a virtual environment (recommended):
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+   source venv/bin/activate   # Windows: venv\Scripts\activate
    ```
-5. Install dependencies:
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-6. Run the application:
+4. Run the application:
    ```bash
-   ./run.sh
+   ./run.sh        # or: python server.py
    ```
-   Or manually:
-   ```bash
-   python server.py
-   ```
+   Open http://localhost:8000.
 
-## Implementation Details
+## Endpoints
 
-### Server Setup
-The application uses Flask to create a web server that:
-- Serves static files
-- Processes payment requests
-- Provides configuration endpoint for client-side SDK
-- Handles JSON responses
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
+| `POST` | `/process-payment` | Charges the single-use `payment_reference` from the Drop-In UI |
+| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `GET` | `/webhook-events` | Returns the last 20 webhook events for the live UI log |
 
-### SDK Configuration
-Global Payments SDK configuration using environment variables:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
+## Test card (sandbox)
 
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns JSON responses for errors
-- Includes appropriate HTTP status codes
-
-## API Endpoints
-
-### GET /config
-Returns public API key for client-side SDK initialization.
-
-Response:
-```json
-{
-    "publicApiKey": "pk_test_xxx"
-}
+```
+Card number : 4263970000005262
+Expiry      : any future date
+CVV         : any 3 digits
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+## Production considerations
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
-
-Response (Success):
-```json
-{
-    "success": true,
-    "message": "Payment successful! Transaction ID: xxx"
-}
-```
-
-Response (Error):
-```json
-{
-    "success": false,
-    "message": "Error: [error message]"
-}
-```
-
-## Security Considerations
-
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
-- Using HTTPS in production
-- Implementing CSRF protection
-- Configuring secure session handling
-- Using a production-grade WSGI server
+- Verify the `X-GP-Signature` HMAC on incoming webhooks (see the commented block in `server.py`).
+- Run behind the bundled `gunicorn` rather than Flask's dev server.
+- Serve over HTTPS and add input validation, rate limiting, and structured logging.

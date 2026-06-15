@@ -1,99 +1,65 @@
-# PHP Card Payment Example
+# PHP — GP API Drop-In UI
 
-This example demonstrates card payment processing using PHP and the Global Payments SDK.
+PHP implementation of the GP API Drop-In UI iframe-succession sample, running on
+PHP's built-in web server. Exposes the same four endpoints as the other
+frameworks and serves the shared Drop-In UI `index.html`.
+
+Charges go through the official **`globalpayments/php-sdk`**; the access token is
+minted with a direct call to the GP API `accesstoken` endpoint so the App Key
+never reaches the browser.
 
 ## Requirements
 
-- PHP 7.4 or later
-- Composer
-- Global Payments account and API credentials
+- PHP 8.0 or later (with cURL)
+- [Composer](https://getcomposer.org/)
+- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure
 
-- `process-payment.php` - Payment processing script
-- `index.php` - Client-side payment form
-- `composer.json` - Project dependencies
-- `.env.sample` - Template for environment variables
-- `run.sh` - Convenience script to run the application
+- `access-token.php` — `GET /access-token`
+- `process-payment.php` — `POST /process-payment` (charges via the SDK)
+- `webhook.php` — `POST /webhook` (appends to `webhook-log.json`)
+- `webhook-events.php` — `GET /webhook-events`
+- `router.php` — front controller that routes requests for the built-in server
+- `index.html` — shared Drop-In UI frontend
+- `composer.json` — dependencies (`globalpayments/php-sdk`, `vlucas/phpdotenv`)
+- `.env.sample` — template for environment variables
+- `run.sh` — installs dependencies and starts the server
 
 ## Setup
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
+1. Copy `.env.sample` to `.env` and fill in your GP API sandbox credentials:
    ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
+   GP_APP_ID=your_app_id
+   GP_APP_KEY=your_app_key
+   GP_MERCHANT_ID=your_merchant_id
+   GP_ACCOUNT_NAME=transaction_processing
    ```
-4. Install dependencies:
+2. Run the application:
    ```bash
-   composer install
+   ./run.sh        # runs: composer install && php -S 0.0.0.0:8000 router.php
    ```
-5. Run the application:
-   ```bash
-   ./run.sh
-   ```
-   Or manually:
-   ```bash
-   php -S localhost:8000
-   ```
+   Open http://localhost:8000.
 
-## Implementation Details
+## Endpoints
 
-### Application Structure
-The application uses a simple PHP structure:
-- Static HTML form for payment collection
-- Separate PHP script for payment processing
-- Composer for dependency management
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
+| `POST` | `/process-payment` | Charges the single-use `payment_reference` from the Drop-In UI |
+| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `GET` | `/webhook-events` | Returns the last 20 webhook events for the live UI log |
 
-### SDK Configuration
-Global Payments SDK configuration using environment variables:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
+## Test card (sandbox)
 
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns appropriate error messages
-- Handles edge cases gracefully
-
-## API Endpoints
-
-### POST /process-payment.php
-Processes a payment using the provided token and billing information.
-
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
-
-Response (Success):
 ```
-Payment successful! Transaction ID: xxx
+Card number : 4263970000005262
+Expiry      : any future date
+CVV         : any 3 digits
 ```
 
-Response (Error):
-```
-Error: [error message]
-```
+## Production considerations
 
-## Security Considerations
-
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
-- Using HTTPS in production
-- Implementing CSRF protection
-- Configuring proper session handling
-- Setting appropriate PHP security directives
+- Verify the `X-GP-Signature` HMAC on incoming webhooks (see the commented block in `webhook.php`).
+- The built-in server is for local/sample use only — deploy behind a real web server (nginx/Apache + PHP-FPM).
+- Serve over HTTPS and add input validation, rate limiting, and structured logging.

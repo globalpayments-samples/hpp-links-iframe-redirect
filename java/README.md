@@ -1,107 +1,64 @@
-# Java Card Payment Example
+# Java (Jakarta Servlet) — GP API Drop-In UI
 
-This example demonstrates card payment processing using Jakarta EE and the Global Payments SDK.
+Jakarta Servlet implementation of the GP API Drop-In UI iframe-succession sample,
+run on Tomcat 10 via the Cargo Maven plugin. Exposes the same four endpoints as
+the other frameworks and serves the shared Drop-In UI `index.html`.
+
+Charges go through the official **`globalpayments-sdk`**; the access token is
+minted with a direct call to the GP API `accesstoken` endpoint so the App Key
+never reaches the browser.
 
 ## Requirements
 
-- Java 11 or later
-- Maven
-- Global Payments account and API credentials
+- JDK 21 or later
+- [Maven](https://maven.apache.org/)
+- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure
 
-- `src/main/java/com/globalpayments/example/ProcessPaymentServlet.java` - Main servlet handling payment processing
-- `src/main/webapp/index.html` - Client-side payment form
-- `src/main/webapp/WEB-INF/web.xml` - Web application configuration
-- `.env.sample` - Template for environment variables
-- `pom.xml` - Project dependencies and build configuration
-- `run.sh` - Convenience script to run the application
+- `src/main/java/com/globalpayments/example/ProcessPaymentServlet.java` — a single
+  servlet that handles all four routes (`/access-token`, `/process-payment`,
+  `/webhook`, `/webhook-events`)
+- `src/main/webapp/index.html` — shared Drop-In UI frontend
+- `src/main/webapp/WEB-INF/web.xml` — servlet/web app descriptor
+- `pom.xml` — dependencies (`globalpayments-sdk`, `dotenv-java`, `jackson-databind`,
+  `jakarta.servlet-api`) and the Cargo/Tomcat 10 run configuration
+- `.env.sample` — template for environment variables
+- `run.sh` — builds the WAR and runs it on Tomcat
 
 ## Setup
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
+1. Copy `.env.sample` to `.env` and fill in your GP API sandbox credentials:
    ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
+   GP_APP_ID=your_app_id
+   GP_APP_KEY=your_app_key
+   GP_MERCHANT_ID=your_merchant_id
+   GP_ACCOUNT_NAME=transaction_processing
    ```
-4. Install dependencies:
+2. Run the application:
    ```bash
-   mvn clean install
+   ./run.sh        # runs: mvn clean package cargo:run
    ```
-5. Run the application:
-   ```bash
-   ./run.sh
-   ```
-   Or manually:
-   ```bash
-   mvn jetty:run
-   ```
+   Open http://localhost:8000.
 
-## Implementation Details
+## Endpoints
 
-### Servlet Configuration
-The application uses Jakarta EE servlets to:
-- Handle payment processing requests
-- Serve configuration data
-- Process form submissions
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
+| `POST` | `/process-payment` | Charges the single-use `payment_reference` from the Drop-In UI |
+| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `GET` | `/webhook-events` | Returns the last 20 webhook events for the live UI log |
 
-### SDK Configuration
-Global Payments SDK configuration is handled in the servlet's init method:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
+## Test card (sandbox)
 
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns appropriate HTTP status codes
-- Provides meaningful error messages
-
-## API Endpoints
-
-### GET /public-key
-Returns public API key for client-side SDK initialization.
-
-Response:
-```json
-{
-    "publicApiKey": "pk_test_xxx"
-}
+```
+Card number : 4263970000005262
+Expiry      : any future date
+CVV         : any 3 digits
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+## Production considerations
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
-
-Response (Success):
-```
-Payment successful! Transaction ID: xxx
-```
-
-Response (Error):
-```
-Error: [error message]
-```
-
-## Security Considerations
-
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
-- Configuring secure session management
+- Verify the `X-GP-Signature` HMAC on incoming webhooks (see the commented block in `ProcessPaymentServlet.java`).
+- Serve over HTTPS and add input validation, rate limiting, and structured logging.
