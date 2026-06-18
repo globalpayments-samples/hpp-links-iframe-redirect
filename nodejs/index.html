@@ -373,6 +373,26 @@ a { color: var(--text-link); }
   padding: var(--gp-space-lg); background: var(--gp-white);
 }
 .gp-cardfield-mount { min-height: 44px; }
+/* The Drop-In UI injects its own field wrappers into the mount with zero
+   spacing and only floats a label on focus, so the boxes render flush against
+   each other and look identical. Space them out and give each a static label. */
+.gp-cardfield-mount .credit-card-card-number,
+.gp-cardfield-mount .credit-card-card-expiration,
+.gp-cardfield-mount .credit-card-card-cvv,
+.gp-cardfield-mount .credit-card-card-holder-name { margin-bottom: var(--gp-space-md); }
+.gp-cardfield-mount .credit-card-card-cvv { margin-left: 0 !important; }
+.gp-cardfield-mount .credit-card-card-number::before,
+.gp-cardfield-mount .credit-card-card-expiration::before,
+.gp-cardfield-mount .credit-card-card-cvv::before,
+.gp-cardfield-mount .credit-card-card-holder-name::before {
+  display: block; font: var(--type-label); color: var(--text-strong); margin-bottom: 7px;
+}
+.gp-cardfield-mount .credit-card-card-number::before      { content: "Card number"; }
+.gp-cardfield-mount .credit-card-card-expiration::before  { content: "Expiry date"; }
+.gp-cardfield-mount .credit-card-card-cvv::before         { content: "Security code (CVV)"; }
+.gp-cardfield-mount .credit-card-card-holder-name::before { content: "Cardholder name"; }
+.gp-cardfield-mount .credit-card-submit { margin-top: var(--gp-space-lg) !important; }
+.gp-cardfield-mount .sandbox-warning { border-radius: var(--radius-sm); margin-bottom: var(--gp-space-md) !important; }
 .gp-secured {
   display: flex; align-items: center; gap: 7px; margin-top: var(--gp-space-md);
   color: var(--text-muted); font: var(--type-body-sm); font-size: var(--text-xs);
@@ -1089,6 +1109,25 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
      ============================================================ */
   var mounted = { payment: false, tokenization: false, recurring: false };
 
+  // Shared Drop-In UI field config so all three tabs render identically:
+  // bordered, spaced fields whose labels come from the page (see the
+  // .gp-cardfield-mount rules), not GP's default in-iframe label layout.
+  var CARD_FORM_OPTS = {
+    style: 'gp-default',
+    labels: {
+      cardNumber:     'Card Number',
+      cardExpiration: 'Expiry Date',
+      cardCvv:        'CVV',
+      cardHolder:     'Cardholder Name'
+    },
+    placeholders: {
+      cardNumber:     '•••• •••• •••• ••••',
+      cardExpiration: 'MM / YY',
+      cardCvv:        '•••',
+      cardHolder:     'Full Name'
+    }
+  };
+
   async function initDropInUI() {
     try {
       var resp = await fetch('/access-token');
@@ -1113,21 +1152,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   function mountPaymentForm() {
     if (mounted.payment) return;
     mounted.payment = true;
-    var form = GlobalPayments.creditCard.form('#credit-card', {
-      style: 'gp-default',
-      labels: {
-        cardNumber:     'Card Number',
-        cardExpiration: 'Expiry Date',
-        cardCvv:        'CVV',
-        cardHolder:     'Cardholder Name'
-      },
-      placeholders: {
-        cardNumber:     '•••• •••• •••• ••••',
-        cardExpiration: 'MM / YY',
-        cardCvv:        '•••',
-        cardHolder:     'Full Name'
-      }
-    });
+    var form = GlobalPayments.creditCard.form('#credit-card', CARD_FORM_OPTS);
 
     form.on('submit', function () { showState('processing'); });
 
@@ -1172,7 +1197,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   function mountTokenForm() {
     if (mounted.tokenization) return;
     mounted.tokenization = true;
-    var form = GlobalPayments.creditCard.form('#credit-card-token', { style: 'gp-default' });
+    var form = GlobalPayments.creditCard.form('#credit-card-token', CARD_FORM_OPTS);
     form.on('token-success', function (resp) {
       document.getElementById('token-display').textContent = JSON.stringify(resp, null, 2);
       document.getElementById('token-result').hidden = false;
@@ -1189,7 +1214,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   function mountRecurringForm() {
     if (mounted.recurring) return;
     mounted.recurring = true;
-    var form = GlobalPayments.creditCard.form('#credit-card-recurring', { style: 'gp-default' });
+    var form = GlobalPayments.creditCard.form('#credit-card-recurring', CARD_FORM_OPTS);
     form.on('token-success', function (resp) {
       var amount = document.getElementById('rec-amount').value;
       var cycle  = document.getElementById('rec-cycle').value;
