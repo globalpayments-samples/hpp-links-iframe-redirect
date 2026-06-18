@@ -685,8 +685,9 @@ a { color: var(--text-link); }
 
           <div class="gp-field">
             <label class="gp-label">Card details</label>
-            <div class="gp-cardfield">
-              <!-- Drop-In UI mounts its secure iframe (card fields + submit) here -->
+            <div class="gp-cardfield" id="cardhost-payment-form">
+              <!-- The single shared Drop-In UI form (card fields + submit) lives
+                   here by default and is relocated into the active card tab. -->
               <div class="gp-cardfield-mount" id="credit-card"></div>
               <div class="gp-secured">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.3"/></svg>
@@ -763,9 +764,8 @@ a { color: var(--text-link); }
           <h3>Try it</h3>
           <p>Enter the sandbox test card in the secure fields to generate a reference.</p>
         </div>
-        <div class="gp-cardfield">
-          <!-- Drop-In UI mounts its secure iframe here -->
-          <div class="gp-cardfield-mount" id="credit-card-token"></div>
+        <div class="gp-cardfield" id="cardhost-tokenization">
+          <!-- The shared Drop-In UI form is relocated here when this tab is active. -->
           <div class="gp-secured">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.3"/></svg>
             Secured by Global Payments
@@ -891,9 +891,8 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
             </select>
           </div>
         </div>
-        <div class="gp-cardfield">
-          <!-- Drop-In UI mounts its secure iframe here -->
-          <div class="gp-cardfield-mount" id="credit-card-recurring"></div>
+        <div class="gp-cardfield" id="cardhost-recurring">
+          <!-- The shared Drop-In UI form is relocated here when this tab is active. -->
           <div class="gp-secured">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.3"/></svg>
             Consent captured at enrolment
@@ -977,10 +976,9 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
     });
     if (focus) tab.focus();
 
-    // Lazy-mount the Drop-In UI only when a tab first becomes visible.
-    if (tab.dataset.tab === 'tokenization') mountTokenForm();
-    if (tab.dataset.tab === 'recurring')    mountRecurringForm();
-    if (tab.dataset.tab === 'webhooks')     loadWebhookEvents();
+    // Move the single shared Drop-In form into whichever card tab is active.
+    if (cardHosts[tab.dataset.tab]) moveCardFormTo(tab.dataset.tab);
+    if (tab.dataset.tab === 'webhooks') loadWebhookEvents();
 
     history.replaceState(null, '', '#' + tab.dataset.tab);
   }
@@ -1107,11 +1105,21 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   /* ============================================================
      Drop-In UI SDK wiring
      ============================================================ */
-  var mounted = { payment: false, tokenization: false, recurring: false };
+  // GlobalPayments hosted fields support only ONE Drop-In form per page: a
+  // second creditCard.form() call re-injects its fields into the first form's
+  // container, which produced duplicate fields and stacked submit buttons. So we
+  // mount a single shared form and relocate it into whichever card tab is
+  // active, routing its token events by the active tab.
+  var activeCardTab = 'payment-form';
+  var cardHosts = {
+    'payment-form': 'cardhost-payment-form',
+    'tokenization': 'cardhost-tokenization',
+    'recurring':    'cardhost-recurring'
+  };
 
-  // Shared Drop-In UI field config so all three tabs render identically:
-  // bordered, spaced fields whose labels come from the page (see the
-  // .gp-cardfield-mount rules), not GP's default in-iframe label layout.
+  // Shared Drop-In UI field config: bordered, spaced fields whose labels come
+  // from the page (see the .gp-cardfield-mount rules), not GP's default
+  // in-iframe label layout.
   var CARD_FORM_OPTS = {
     style: 'gp-default',
     labels: {
@@ -1140,7 +1148,8 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
         apiVersion:  '2021-03-22'
       });
 
-      mountPaymentForm();
+      mountCardForm();
+      moveCardFormTo(activeCardTab); // honour any tab opened before init finished
     } catch (err) {
       var el = document.getElementById('pay-error');
       el.textContent = 'Initialisation error: ' + err.message;
@@ -1148,90 +1157,96 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
     }
   }
 
-  // --- Tab 1: Checkout ---
-  function mountPaymentForm() {
-    if (mounted.payment) return;
-    mounted.payment = true;
+  // Relocate the single shared card form into the active tab's card host. The
+  // iframes survive being re-parented, so this avoids creating a second form.
+  function moveCardFormTo(tabName) {
+    if (!cardHosts[tabName]) return;
+    activeCardTab = tabName;
+    var mount = document.getElementById('credit-card');
+    var host  = document.getElementById(cardHosts[tabName]);
+    if (mount && host && mount.parentElement !== host) {
+      host.insertBefore(mount, host.firstChild);
+    }
+  }
+
+  // Mount the one and only Drop-In form, routing its events by active tab.
+  function mountCardForm() {
     var form = GlobalPayments.creditCard.form('#credit-card', CARD_FORM_OPTS);
 
-    form.on('submit', function () { showState('processing'); });
+    form.on('submit', function () {
+      if (activeCardTab === 'payment-form') showState('processing');
+    });
 
-    form.on('token-success', async function (resp) {
-      try {
-        var amount = document.getElementById('pay-amount').value;
-        var res = await fetch('/process-payment', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ payment_reference: resp.paymentReference, amount: amount })
-        });
-        var result = await res.json();
+    form.on('token-success', function (resp) {
+      if (activeCardTab === 'payment-form')      handleCheckoutToken(resp);
+      else if (activeCardTab === 'tokenization') handleTokenizeToken(resp);
+      else if (activeCardTab === 'recurring')    handleRecurringToken(resp);
+    });
 
-        if (result.success) {
-          renderReceipt({
-            transactionId: result.transactionId,
-            amount:        result.amount,
-            status:        result.status,
-            cardDetails:   result.cardDetails
-          });
-          showState('success');
-        } else {
-          document.getElementById('decline-message').textContent =
-            result.error || 'The issuer declined this card. No charge was made.';
-          showState('decline');
-        }
-      } catch (err) {
-        document.getElementById('decline-message').textContent = 'Network error: ' + err.message;
-        showState('decline');
+    form.on('token-error', function (resp) {
+      var msg = (resp.error && resp.error.message) || 'Card tokenization failed.';
+      if (activeCardTab === 'payment-form') {
+        var pe = document.getElementById('pay-error');
+        pe.textContent = msg; pe.hidden = false; showState('form');
+      } else if (activeCardTab === 'tokenization') {
+        var te = document.getElementById('token-error');
+        te.textContent = msg; te.hidden = false;
+      } else if (activeCardTab === 'recurring') {
+        var re = document.getElementById('rec-error');
+        re.textContent = msg; re.hidden = false;
       }
     });
-
-    form.on('token-error', function (resp) {
-      var el = document.getElementById('pay-error');
-      el.textContent = (resp.error && resp.error.message) || 'Card tokenization failed.';
-      el.hidden = false;
-      showState('form');
-    });
   }
 
-  // --- Tab 2: Tokenization (token only, no charge) ---
-  function mountTokenForm() {
-    if (mounted.tokenization) return;
-    mounted.tokenization = true;
-    var form = GlobalPayments.creditCard.form('#credit-card-token', CARD_FORM_OPTS);
-    form.on('token-success', function (resp) {
-      document.getElementById('token-display').textContent = JSON.stringify(resp, null, 2);
-      document.getElementById('token-result').hidden = false;
-      document.getElementById('token-error').hidden = true;
-    });
-    form.on('token-error', function (resp) {
-      var el = document.getElementById('token-error');
-      el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
-      el.hidden = false;
-    });
+  // --- Tab 1: Checkout — charge the single-use reference ---
+  async function handleCheckoutToken(resp) {
+    try {
+      var amount = document.getElementById('pay-amount').value;
+      var res = await fetch('/process-payment', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ payment_reference: resp.paymentReference, amount: amount })
+      });
+      var result = await res.json();
+
+      if (result.success) {
+        renderReceipt({
+          transactionId: result.transactionId,
+          amount:        result.amount,
+          status:        result.status,
+          cardDetails:   result.cardDetails
+        });
+        showState('success');
+      } else {
+        document.getElementById('decline-message').textContent =
+          result.error || 'The issuer declined this card. No charge was made.';
+        showState('decline');
+      }
+    } catch (err) {
+      document.getElementById('decline-message').textContent = 'Network error: ' + err.message;
+      showState('decline');
+    }
   }
 
-  // --- Tab 4: Recurring (enrol card, show stored-credential info) ---
-  function mountRecurringForm() {
-    if (mounted.recurring) return;
-    mounted.recurring = true;
-    var form = GlobalPayments.creditCard.form('#credit-card-recurring', CARD_FORM_OPTS);
-    form.on('token-success', function (resp) {
-      var amount = document.getElementById('rec-amount').value;
-      var cycle  = document.getElementById('rec-cycle').value;
-      document.getElementById('rec-display').textContent = JSON.stringify({
-        paymentReference: resp.paymentReference,
-        amount: amount,
-        billingCycle: cycle,
-        storedCredential: { initiator: 'Merchant', sequence: 'SUBSEQUENT', reason: 'RECURRING' }
-      }, null, 2);
-      document.getElementById('rec-result').hidden = false;
-      document.getElementById('rec-error').hidden = true;
-    });
-    form.on('token-error', function (resp) {
-      var el = document.getElementById('rec-error');
-      el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
-      el.hidden = false;
-    });
+  // --- Tab 2: Tokenization — token only, no charge ---
+  function handleTokenizeToken(resp) {
+    document.getElementById('token-display').textContent = JSON.stringify(resp, null, 2);
+    document.getElementById('token-result').hidden = false;
+    document.getElementById('token-error').hidden = true;
+  }
+
+  // --- Tab 4: Recurring — show the stored-credential payload ---
+  function handleRecurringToken(resp) {
+    var amount = document.getElementById('rec-amount').value;
+    var cycle  = document.getElementById('rec-cycle').value;
+    document.getElementById('rec-display').textContent = JSON.stringify({
+      paymentReference: resp.paymentReference,
+      amount: amount,
+      billingCycle: cycle,
+      storedCredential: { initiator: 'Merchant', sequence: 'SUBSEQUENT', reason: 'RECURRING' }
+    }, null, 2);
+    document.getElementById('rec-result').hidden = false;
+    document.getElementById('rec-error').hidden = true;
   }
 
   /* ---------- Boot ---------- */
