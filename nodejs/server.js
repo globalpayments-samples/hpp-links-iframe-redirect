@@ -40,7 +40,11 @@ gpConfig.appId                  = process.env.GP_APP_ID;
 gpConfig.appKey                 = process.env.GP_APP_KEY;
 gpConfig.channel                = Channel.CardNotPresent;
 gpConfig.environment            = Environment.Test;
-gpConfig.merchantId             = process.env.GP_MERCHANT_ID;
+// NOTE: do not set merchantId. This is a direct-merchant integration, so the
+// account is resolved from the app credentials + transactionProcessingAccountName.
+// Setting merchantId makes the SDK route charges to the partner-scoped
+// /ucp/merchants/{id}/transactions endpoint, which requires permissions a
+// direct-merchant app doesn't have (GP returns ACTION_NOT_AUTHORIZED 40212).
 gpConfig.accessTokenInfo        = {
     transactionProcessingAccountName: process.env.GP_ACCOUNT_NAME
 };
@@ -106,7 +110,8 @@ app.post('/process-payment', async (req, res) => {
         res.json({
             success:       true,
             transactionId: result.transactionId,
-            amount:        result.balanceAmount || amount,
+            // Emit amount as a JSON number for parity with the other backends.
+            amount:        parseFloat(result.balanceAmount || amount),
             status:        result.responseMessage,
             cardDetails: {
                 brand:        result.cardType,

@@ -52,7 +52,11 @@ public class Program
             AppKey      = Env("GP_APP_KEY"),
             Channel     = Channel.CardNotPresent,
             Environment = GpEnvironment.TEST,
-            MerchantId  = Env("GP_MERCHANT_ID"),
+            // NOTE: do not set MerchantId. This is a direct-merchant integration, so the
+            // account is resolved from the app credentials + TransactionProcessingAccountName.
+            // Setting MerchantId makes the SDK route charges to the partner-scoped
+            // /ucp/merchants/{id}/transactions endpoint, which requires permissions a
+            // direct-merchant app doesn't have (GP returns ACTION_NOT_AUTHORIZED 40212).
             AccessTokenInfo = new AccessTokenInfo
             {
                 TransactionProcessingAccountName = Env("GP_ACCOUNT_NAME")
@@ -171,16 +175,23 @@ public class Program
                 var evtType = evt.TryGetProperty("type", out var t) ? t.ToString() : "?";
                 var evtId   = evt.TryGetProperty("id", out var i) ? i.ToString() : "";
 
-                // Flatten the event at the top level (receivedAt + original fields)
-                // so the live UI log can read type/id directly, matching the other
-                // four frameworks.
-                WebhookEvents.Enqueue(new
+                // Spread the original event at the top level (receivedAt + all
+                // event fields) so /webhook-events returns an identical shape to
+                // the Node/Python/PHP/Java implementations.
+                var enriched = new Dictionary<string, object?>
                 {
-                    receivedAt = DateTime.UtcNow.ToString("o"),
-                    type       = evtType,
-                    id         = evtId,
-                    payload    = evt
-                });
+                    ["receivedAt"] = DateTime.UtcNow.ToString("o")
+                };
+                if (evt.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in evt.EnumerateObject())
+                        enriched[prop.Name] = prop.Value;
+                }
+                else
+                {
+                    enriched["payload"] = evt;
+                }
+                WebhookEvents.Enqueue(enriched);
                 while (WebhookEvents.Count > 20) WebhookEvents.TryDequeue(out _);
                 Console.WriteLine($"[Webhook] type={evtType}");
                 return Results.Ok("OK");

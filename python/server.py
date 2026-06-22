@@ -110,8 +110,10 @@ def process_payment():
                 'type':           'SALE',
                 'amount':         amount_minor,
                 'currency':       'USD',
+                'country':        'US',
                 'reference':      f'ORD-{int(time.time())}',
-                'payment_method': {'id': payment_reference},
+                # entry_mode is required for card-not-present token charges.
+                'payment_method': {'entry_mode': 'ECOM', 'id': payment_reference},
             },
             headers={
                 'Authorization': f'Bearer {token}',
@@ -123,10 +125,15 @@ def process_payment():
         result = resp.json()
 
         if not resp.ok:
-            return jsonify({
-                'success': False,
-                'error':   result.get('detail', 'Payment failed'),
-            }), 400
+            # GP API returns errors as detailed_error_description / error_code
+            # (not `detail`); surface the most specific message available.
+            error_msg = (
+                result.get('detailed_error_description')
+                or result.get('detail')
+                or result.get('error_code')
+                or 'Payment failed'
+            )
+            return jsonify({'success': False, 'error': error_msg}), 400
 
         status = result.get('status', '')
         card   = result.get('payment_method', {}).get('card', {})

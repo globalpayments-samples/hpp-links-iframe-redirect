@@ -65,7 +65,11 @@ public class ProcessPaymentServlet extends HttpServlet {
             config.setAppKey(dotenv.get("GP_APP_KEY"));
             config.setChannel(Channel.CardNotPresent);
             config.setEnvironment(Environment.TEST);
-            config.setMerchantId(dotenv.get("GP_MERCHANT_ID"));
+            // NOTE: do not set merchantId. This is a direct-merchant integration, so the
+            // account is resolved from the app credentials + transactionProcessingAccountName.
+            // Setting merchantId makes the SDK route charges to the partner-scoped
+            // /ucp/merchants/{id}/transactions endpoint, which requires permissions a
+            // direct-merchant app doesn't have (GP returns ACTION_NOT_AUTHORIZED 40212).
 
             AccessTokenInfo tokenInfo = new AccessTokenInfo();
             tokenInfo.setTransactionProcessingAccountName(dotenv.get("GP_ACCOUNT_NAME"));
@@ -152,10 +156,26 @@ public class ProcessPaymentServlet extends HttpServlet {
 
         try {
             String rawBody = req.getReader().lines().collect(Collectors.joining());
-            JsonNode input = mapper.readTree(rawBody);
 
-            String     paymentRef = input.path("payment_reference").asText(null);
-            BigDecimal amount     = new BigDecimal(input.path("amount").asText("0"));
+            // A malformed/non-JSON body is a client error (400), not a 500 —
+            // matches the Node/Python/PHP/.NET behaviour.
+            JsonNode input;
+            try {
+                input = mapper.readTree(rawBody);
+            } catch (Exception parseErr) {
+                res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                res.getWriter().write("{\"success\":false,\"error\":\"Invalid JSON body\"}");
+                return;
+            }
+            if (input == null) input = mapper.createObjectNode();
+
+            String paymentRef = input.path("payment_reference").asText(null);
+            BigDecimal amount;
+            try {
+                amount = new BigDecimal(input.path("amount").asText("0"));
+            } catch (NumberFormatException nfe) {
+                amount = BigDecimal.ZERO;
+            }
 
             if (paymentRef == null || paymentRef.isBlank() || amount.compareTo(BigDecimal.ZERO) <= 0) {
                 res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -174,7 +194,8 @@ public class ProcessPaymentServlet extends HttpServlet {
             ObjectNode out = mapper.createObjectNode();
             out.put("success",       true);
             out.put("transactionId", result.getTransactionId());
-            out.put("amount",        amount.toPlainString());
+            // Emit amount as a JSON number for parity with the other backends.
+            out.put("amount",        amount);
             out.put("status",        result.getResponseMessage());
             ObjectNode card2 = out.putObject("cardDetails");
             card2.put("brand",        result.getCardType());
@@ -212,11 +233,16 @@ public class ProcessPaymentServlet extends HttpServlet {
             String   type  = event.path("type").asText("EVENT");
             String   id    = event.path("id").asText("");
 
+            // Spread the original event at the top level (receivedAt + all event
+            // fields) so /webhook-events returns an identical shape to the
+            // Node/Python/PHP implementations.
             ObjectNode enriched = mapper.createObjectNode();
             enriched.put("receivedAt", Instant.now().toString());
-            enriched.put("type",       type);
-            enriched.put("id",         id);
-            enriched.set("payload",    event);
+            if (event instanceof ObjectNode) {
+                enriched.setAll((ObjectNode) event);
+            } else {
+                enriched.set("payload", event);
+            }
 
             synchronized (webhookEvents) {
                 webhookEvents.addFirst(mapper.writeValueAsString(enriched));

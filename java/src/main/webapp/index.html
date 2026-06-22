@@ -231,6 +231,14 @@ a { color: var(--text-link); }
 }
 .gp-tablist { display: flex; gap: var(--gp-space-xs); overflow-x: auto; scrollbar-width: none; }
 .gp-tablist::-webkit-scrollbar { display: none; }
+/* On narrow screens the tabs overflow horizontally; fade the right edge so it's
+   clear there are more tabs to scroll to. */
+@media (max-width: 600px) {
+  .gp-tablist {
+    -webkit-mask-image: linear-gradient(to right, #000 86%, transparent);
+            mask-image: linear-gradient(to right, #000 86%, transparent);
+  }
+}
 .gp-tab {
   appearance: none; background: none; border: none;
   border-bottom: 2px solid transparent;
@@ -627,7 +635,7 @@ a { color: var(--text-link); }
       </div>
       <div class="gp-ctx-meta">
         <span class="gp-chip"><span class="gp-method">POST</span> <b>/process-payment</b></span>
-        <span class="gp-chip">scope <b>PMT_POST_Create</b></span>
+        <span class="gp-chip">scope <b>PMT_POST_Create_Single</b></span>
       </div>
     </div>
 
@@ -712,11 +720,11 @@ a { color: var(--text-link); }
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 12 4 4 8-8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <h3>Payment successful</h3>
-          <p>The transaction was captured. A webhook notification was sent to your endpoint.</p>
+          <p>The transaction was captured. If you've registered a webhook endpoint, a notification will be sent to it.</p>
           <div class="gp-receipt" id="success-receipt"></div>
           <div class="gp-result-actions">
             <button class="gp-btn gp-btn-secondary" id="restart-btn" type="button">New transaction</button>
-            <a class="gp-btn gp-btn-primary" href="https://developer.globalpayments.com/api/references-overview" target="_blank" rel="noopener">View in Reporting</a>
+            <a class="gp-btn gp-btn-primary" href="https://developer.globalpayments.com/api/references-overview" target="_blank" rel="noopener">View API reference</a>
           </div>
         </div>
 
@@ -842,7 +850,8 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
           </div>
         </div>
         <p style="font: var(--type-body-sm); color: var(--text-muted); margin: 0 0 var(--gp-space-md);">
-          Complete a checkout on tab&nbsp;1 — notifications appear here as they arrive at your endpoint.
+          The GP sandbox can only deliver to a publicly reachable <code>status_url</code> — expose this
+          endpoint (e.g. via an ngrok tunnel) and register it on your transaction to see live events here.
         </p>
         <div class="gp-feed" id="webhook-feed">
           <div class="gp-feed-empty" id="feed-empty">No events yet. Run a payment to see notifications arrive.</div>
@@ -921,7 +930,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
 <!-- ============================================================ FOOTER -->
 <footer class="gp-footer">
   <div class="gp-container gp-footer-inner">
-    <p class="gp-footer-copy">© 2025 Your Company Name · Built on Global Payments Drop-In UI</p>
+    <p class="gp-footer-copy">© 2026 Your Company Name · Built on Global Payments Drop-In UI</p>
     <nav class="gp-footer-nav" aria-label="Legal">
       <a href="/terms-of-service">Terms of Service</a>
       <a href="/privacy-policy">Privacy Policy</a>
@@ -1031,15 +1040,37 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
     });
   }
 
+  // Escape any value before it goes into innerHTML. Server/gateway/webhook data
+  // (transactionId, status, card brand, webhook type/id) is untrusted — the
+  // /webhook endpoint in particular accepts unauthenticated JSON — so escaping
+  // here prevents HTML/script injection in the receipt and the live feed.
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // The backends return cardDetails as an object { brand, maskedNumber }; the
+  // masked value may be a full PAN ("XXXXXXXXXXXX5262") or just the last four.
+  // Render a clean "VISA •••• 5262" string instead of "[object Object]".
+  function formatCard(cd) {
+    if (!cd) return '—';
+    if (typeof cd === 'string') return cd;
+    var brand = (cd.brand || '').toString().toUpperCase();
+    var last4 = String(cd.maskedNumber || '').replace(/\D/g, '').slice(-4);
+    var masked = last4 ? '•••• ' + last4 : '';
+    return (brand + ' ' + masked).trim() || '—';
+  }
+
   function renderReceipt(result) {
     var rows = [
       ['Transaction ID', result.transactionId || '—'],
       ['Amount', (result.amount != null ? '$' + result.amount + ' USD' : '—')],
-      ['Card', result.cardDetails || '—'],
+      ['Card', formatCard(result.cardDetails)],
       ['Status', result.status || 'CAPTURED']
     ];
     document.getElementById('success-receipt').innerHTML = rows.map(function (r) {
-      return '<div class="gp-receipt-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>';
+      return '<div class="gp-receipt-row"><span class="k">' + escapeHtml(r[0]) + '</span><span class="v">' + escapeHtml(r[1]) + '</span></div>';
     }).join('');
   }
 
@@ -1083,9 +1114,9 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
       var type = e.type || 'EVENT';
       var id = e.id || '';
       return '<div class="gp-event">' +
-        '<div><div class="gp-event-type">' + type + '</div>' +
-        '<div class="gp-event-id">' + id + '</div></div>' +
-        '<span class="gp-event-time">' + timeAgo(e.receivedAt) + '</span></div>';
+        '<div><div class="gp-event-type">' + escapeHtml(type) + '</div>' +
+        '<div class="gp-event-id">' + escapeHtml(id) + '</div></div>' +
+        '<span class="gp-event-time">' + escapeHtml(timeAgo(e.receivedAt)) + '</span></div>';
     }).join('');
   }
 

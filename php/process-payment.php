@@ -30,10 +30,12 @@ $config->appId       = $_ENV['GP_APP_ID'];
 $config->appKey      = $_ENV['GP_APP_KEY'];
 $config->channel     = \GlobalPayments\Api\Entities\Enums\Channel::CardNotPresent;
 $config->environment = \GlobalPayments\Api\Entities\Enums\Environment::TEST;
-$config->merchantId  = $_ENV['GP_MERCHANT_ID'];
 
-// Pin the transaction-processing account so charges resolve to the right
-// account (parity with the Node/Java/.NET implementations).
+// NOTE: do not set merchantId. This is a direct-merchant integration, so the
+// account is resolved from the app credentials + transactionProcessingAccountName.
+// Setting merchantId makes the SDK route charges to the partner-scoped
+// /ucp/merchants/{id}/transactions endpoint, which requires permissions a
+// direct-merchant app doesn't have (GP returns ACTION_NOT_AUTHORIZED 40212).
 $accessTokenInfo = new AccessTokenInfo();
 $accessTokenInfo->transactionProcessingAccountName = $_ENV['GP_ACCOUNT_NAME'];
 $config->accessTokenInfo = $accessTokenInfo;
