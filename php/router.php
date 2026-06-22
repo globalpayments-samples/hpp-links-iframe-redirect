@@ -14,10 +14,10 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $base   = __DIR__;
 
 $routes = [
-    ['GET',  '/access-token',   'access-token.php'],
-    ['POST', '/process-payment','process-payment.php'],
-    ['POST', '/webhook',        'webhook.php'],
-    ['GET',  '/webhook-events', 'webhook-events.php'],
+    ['POST', '/create-hpp-link', 'create-hpp-link.php'],
+    ['GET',  '/payment-status',  'payment-status.php'],
+    ['POST', '/webhook',         'webhook.php'],
+    ['GET',  '/webhook-events',  'webhook-events.php'],
 ];
 
 foreach ($routes as [$routeMethod, $routePath, $file]) {

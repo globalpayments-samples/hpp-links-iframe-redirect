@@ -1,136 +1,227 @@
 /**
- * Global Payments – Drop-In UI Sample (Node.js / Express)
+ * Global Payments – Hosted Payment Page (HPP) Sample (Node.js / Express)
+ *
+ * The merchant server creates a HOSTED_PAYMENT_PAGE link via the GP API Links API
+ * and hands the browser a GP-hosted URL. The customer enters card details, completes
+ * 3-D Secure, and pays entirely on the GP-hosted page — the raw card number never
+ * touches this server.
  *
  * Endpoints:
- *   GET  /access-token     — generate a limited-scope frontend token for Drop-In UI
- *   POST /process-payment  — charge a single-use token returned by the Drop-In UI
- *   POST /webhook          — receive GP API transaction notifications
+ *   POST /create-hpp-link  — create a HOSTED_PAYMENT_PAGE link; returns { id, url, reference }
+ *   GET  /payment-status   — read the link/transaction outcome for the UI to poll
+ *   POST /webhook          — receive GP API notifications (status_url)
  *   GET  /webhook-events   — tail recent webhook events (for the live UI log)
+ *
+ * This calls the GP API REST endpoints directly via fetch (no SDK). The
+ * HOSTED_PAYMENT_PAGE link type is not uniformly exposed by the language SDKs, so
+ * all five framework samples standardise on raw REST for an identical contract.
  */
 
-import express        from 'express';
-import * as dotenv    from 'dotenv';
-import crypto         from 'crypto';
-import {
-    ServicesContainer,
-    GpApiConfig,
-    CreditCardData,
-    Channel,
-    Environment
-} from 'globalpayments-api';
+import express     from 'express';
+import * as dotenv from 'dotenv';
+import crypto      from 'crypto';
 
 dotenv.config();
 
 const app  = express();
 const PORT = process.env.PORT || 8000;
 
+const GP_BASE    = 'https://apis.sandbox.globalpay.com/ucp';
+const GP_VERSION = '2021-03-22';
+
 // In-memory event ring for the UI webhook log (last 20 notifications)
 const webhookEvents = [];
 
 app.use(express.static('.'));
-app.use(express.urlencoded({ extended: true }));
-// Preserve raw body for /webhook (needed for HMAC signature verification);
-// express.json() must come AFTER so it doesn't consume the stream first.
-app.use('/webhook', express.raw({ type: 'application/json' }));
+// Preserve the raw body for /webhook (needed for HMAC signature verification);
+// express.json() is mounted AFTER so it doesn't consume the stream first.
+app.use('/webhook', express.raw({ type: '*/*' }));
 app.use(express.json());
 
-// ─── GP API SDK configuration ────────────────────────────────────────────────
-const gpConfig                  = new GpApiConfig();
-gpConfig.appId                  = process.env.GP_APP_ID;
-gpConfig.appKey                 = process.env.GP_APP_KEY;
-gpConfig.channel                = Channel.CardNotPresent;
-gpConfig.environment            = Environment.Test;
-gpConfig.merchantId             = process.env.GP_MERCHANT_ID;
-gpConfig.accessTokenInfo        = {
-    transactionProcessingAccountName: process.env.GP_ACCOUNT_NAME
-};
-ServicesContainer.configureService(gpConfig);
+// ─── GP API access token ─────────────────────────────────────────────────────
+// Mint a Bearer token carrying the app's full scope (no `permissions` filter) so
+// it includes LNK_POST_Create. secret = sha512(nonce + appKey); the App Key never
+// reaches the browser.
+async function getToken() {
+    const nonce  = new Date().toISOString();
+    const secret = crypto.createHash('sha512')
+        .update(nonce + process.env.GP_APP_KEY)
+        .digest('hex');
 
-// ─── GET /access-token ───────────────────────────────────────────────────────
-// Returns a short-lived, single-use-tokenization-scoped access token to the
-// frontend so it can initialise GlobalPayments.configure() without exposing
-// the full App Key in the browser.
-app.get('/access-token', async (_req, res) => {
+    const res  = await fetch(`${GP_BASE}/accesstoken`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-GP-Version': GP_VERSION },
+        body: JSON.stringify({
+            app_id:     process.env.GP_APP_ID,
+            nonce,
+            secret,
+            grant_type: 'client_credentials'
+        })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.detailed_error_description || data.error_code || 'Access token request failed');
+    }
+    return data.token;
+}
+
+// Public origin used to build the link's return_url / status_url. Honours BASE_URL
+// (set it to a tunnel so the GP sandbox can reach /webhook), else the request origin.
+function baseUrl(req) {
+    if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+    const proto = req.headers['x-forwarded-proto'] || req.protocol;
+    const host  = req.headers['x-forwarded-host']  || req.headers.host;
+    return `${proto}://${host}`;
+}
+
+// Build the GP API HOSTED_PAYMENT_PAGE link request body. Required fields learned
+// from the live API: top-level `reference`, `order.amount`, and `payer.email`
+// (the hosted layer rejects a missing HPP_CUSTOMER_EMAIL). Amounts are minor units.
+function buildLinkBody({ amount, currency, config, reference, payer, base }) {
+    const minor = String(Math.round(parseFloat(amount) * 100));
+    const cfg   = config || {};
+
+    // Value-add toggles map into transaction_configuration. 3-D Secure runs
+    // automatically on the hosted page; wallet/APM availability is account-
+    // provisioned, so these flags are best-effort hints (unknown fields are
+    // ignored by the API rather than rejected).
+    const transactionConfiguration = { country: 'US', channel: 'CNP' };
+    if (cfg.dcc)         transactionConfiguration.allow_dynamic_currency_conversion = true;
+    if (cfg.cardStorage) transactionConfiguration.enable_card_storage              = true;
+
+    const allowedPaymentMethods = ['CARD'];
+    if (cfg.digitalWallets) allowedPaymentMethods.push('DIGITAL_WALLET');
+    if (cfg.apm)            allowedPaymentMethods.push('PAYPAL');
+
+    return {
+        account_name:    process.env.GP_ACCOUNT_NAME,   // transaction_processing_hpp
+        type:            'HOSTED_PAYMENT_PAGE',
+        usage_mode:      'SINGLE',
+        usage_limit:     '1',
+        reference,
+        name:            'HPP Demo Transaction',
+        description:     'Hosted Payment Page transaction from the GP API sample',
+        expiration_date: new Date(Date.now() + 3600 * 1000).toISOString(),
+        order: {
+            amount:    minor,
+            currency:  currency || 'USD',
+            reference,
+            transaction_configuration: transactionConfiguration
+        },
+        transactions: {
+            amount:                 minor,
+            channel:                'CNP',
+            country:                'US',
+            currency:               currency || 'USD',
+            allowed_payment_methods: allowedPaymentMethods
+        },
+        payer: {
+            email: payer?.email || 'sandbox.payer@example.com',
+            name:  payer?.name  || 'Sandbox Payer'
+        },
+        notifications: {
+            return_url: `${base}/?reference=${encodeURIComponent(reference)}`,
+            status_url: `${base}/webhook`
+        }
+    };
+}
+
+// Map a GP transaction status to the UI's success / declined / pending buckets.
+// A successful 3-D Secure hosted sale settles as PREAUTHORIZED (not CAPTURED).
+function classify(status) {
+    const s = (status || '').toUpperCase();
+    if (['PREAUTHORIZED', 'CAPTURED', 'SUCCESS'].includes(s)) return 'success';
+    if (['DECLINED', 'REJECTED', 'CANCELLED'].includes(s))    return 'declined';
+    return 'pending';
+}
+
+// ─── POST /create-hpp-link ───────────────────────────────────────────────────
+// Creates a HOSTED_PAYMENT_PAGE link and returns the GP-hosted URL for the page
+// to render (iframe) or redirect to.
+app.post('/create-hpp-link', async (req, res) => {
+    const { amount, currency, config, payer } = req.body || {};
+
+    const parsedAmount = parseFloat(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ success: false, error: 'A positive amount is required' });
+    }
+
     try {
-        const nonce  = Date.now().toString();
-        const secret = crypto.createHash('sha512')
-            .update(nonce + process.env.GP_APP_KEY)
-            .digest('hex');
+        const token     = await getToken();
+        const reference = `order-${Date.now()}`;
+        const body      = buildLinkBody({ amount, currency, config, reference, payer, base: baseUrl(req) });
 
-        const gpRes  = await fetch('https://apis.sandbox.globalpay.com/ucp/accesstoken', {
+        const gpRes = await fetch(`${GP_BASE}/links`, {
             method:  'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-GP-Version': '2021-03-22'
+                'Authorization': `Bearer ${token}`,
+                'Content-Type':  'application/json',
+                'X-GP-Version':  GP_VERSION
             },
-            body: JSON.stringify({
-                app_id:      process.env.GP_APP_ID,
-                nonce,
-                secret,
-                grant_type:  'client_credentials',
-                permissions: ['PMT_POST_Create_Single']
-            })
+            body: JSON.stringify(body)
         });
-
         const data = await gpRes.json();
-        if (!gpRes.ok) throw new Error(data.detail || 'Access token request failed');
 
-        res.json({ token: data.token, env: 'sandbox' });
+        if (!gpRes.ok) {
+            const msg = data.detailed_error_description || data.error_code || 'Link creation failed';
+            return res.status(400).json({ success: false, error: msg });
+        }
+
+        res.json({ success: true, id: data.id, url: data.url, reference });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ─── POST /process-payment ───────────────────────────────────────────────────
-// Charges the single-use paymentReference returned by the Drop-In UI token-success
-// event. The raw card number never reaches this server.
-app.post('/process-payment', async (req, res) => {
-    const { payment_reference, amount } = req.body;
-
-    if (!payment_reference || !amount || parseFloat(amount) <= 0) {
-        return res.status(400).json({
-            success: false,
-            error:   'payment_reference and a positive amount are required'
-        });
+// ─── GET /payment-status ─────────────────────────────────────────────────────
+// Reads the outcome of a hosted payment. Polled by the UI (iframe mode) and read
+// once on redirect-return. Looks the transaction up by the order reference.
+app.get('/payment-status', async (req, res) => {
+    const reference = req.query.reference;
+    if (!reference) {
+        return res.status(400).json({ success: false, error: 'reference is required' });
     }
 
     try {
-        const card   = new CreditCardData();
-        card.token   = payment_reference;
+        const token = await getToken();
+        const gpRes = await fetch(`${GP_BASE}/transactions?reference=${encodeURIComponent(reference)}`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'X-GP-Version': GP_VERSION }
+        });
+        const data = await gpRes.json();
 
-        const result = await card.charge(parseFloat(amount))
-            .withCurrency('USD')
-            .withOrderId(`ORD-${Date.now()}`)
-            .execute();
+        const txn = (data.transactions || [])[0];
+        if (!txn) {
+            // No transaction recorded yet — the customer hasn't finished paying.
+            return res.json({ success: true, outcome: 'pending', status: 'PENDING' });
+        }
 
+        const card = txn.payment_method?.card || {};
         res.json({
             success:       true,
-            transactionId: result.transactionId,
-            amount:        result.balanceAmount || amount,
-            status:        result.responseMessage,
+            outcome:       classify(txn.status),
+            status:        txn.status,
+            transactionId: txn.id,
+            amount:        txn.amount ? parseInt(txn.amount, 10) / 100 : undefined,
+            currency:      txn.currency,
             cardDetails: {
-                brand:        result.cardType,
-                maskedNumber: result.cardLast4
+                brand:        card.brand,
+                maskedNumber: card.masked_number_last4
             }
         });
     } catch (err) {
-        res.status(400).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
 // ─── POST /webhook ───────────────────────────────────────────────────────────
-// Receives GP API transaction notifications.
-// In production: uncomment the HMAC-SHA256 signature verification block.
-app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+// Receives GP API notifications. In production: uncomment the HMAC-SHA256 check.
+app.post('/webhook', (req, res) => {
     /*
     const sig      = req.headers['x-gp-signature'];
-    const expected = crypto
-        .createHmac('sha256', process.env.GP_WEBHOOK_SECRET)
-        .update(req.body)
-        .digest('hex');
+    const expected = crypto.createHmac('sha256', process.env.GP_WEBHOOK_SECRET)
+        .update(req.body).digest('hex');
     if (sig !== expected) return res.status(401).send('Unauthorized');
     */
-
     try {
         const event = JSON.parse(req.body.toString());
         webhookEvents.unshift({ receivedAt: new Date().toISOString(), ...event });
@@ -143,13 +234,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 });
 
 // ─── GET /webhook-events ─────────────────────────────────────────────────────
-// Used by the UI to tail the in-memory webhook event log.
 app.get('/webhook-events', (_req, res) => {
     res.json(webhookEvents);
 });
 
 // ─── JSON parse error handler ────────────────────────────────────────────────
-// Catches malformed request bodies and returns a clean JSON 400 instead of HTML.
 app.use((err, req, res, _next) => {
     if (err.type === 'entity.parse.failed') {
         return res.status(400).json({ success: false, error: 'Invalid JSON body' });
@@ -157,7 +246,6 @@ app.use((err, req, res, _next) => {
     res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`GP API Drop-In UI (Node.js) running → http://localhost:${PORT}`);
+    console.log(`GP API Hosted Payment Page (Node.js) running → http://localhost:${PORT}`);
 });

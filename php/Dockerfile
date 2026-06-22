@@ -36,5 +36,5 @@ USER app
 
 EXPOSE 8000
 
-# router.php is the front controller — without it `/access-token` etc. won't route
+# router.php is the front controller — without it `/create-hpp-link` etc. won't route
 CMD ["php", "-S", "0.0.0.0:8000", "router.php"]

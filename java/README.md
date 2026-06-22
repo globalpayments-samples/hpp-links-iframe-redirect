@@ -1,39 +1,39 @@
-# Java (Jakarta Servlet) — GP API Drop-In UI
+# Java (Jakarta Servlet) — GP API Hosted Payment Page
 
-Jakarta Servlet implementation of the GP API Drop-In UI iframe-succession sample,
-run on Tomcat 10 via the Cargo Maven plugin. Exposes the same four endpoints as
-the other frameworks and serves the shared Drop-In UI `index.html`.
+Jakarta Servlet implementation of the GP API Hosted Payment Page (HPP) sample, run on
+Tomcat 10 via the Cargo Maven plugin. Exposes the same four endpoints as the other
+frameworks and serves the shared HPP `index.html`.
 
-Charges go through the official **`globalpayments-sdk`**; the access token is
-minted with a direct call to the GP API `accesstoken` endpoint so the App Key
-never reaches the browser.
+Calls the GP REST API directly with `java.net.http.HttpClient` (no SDK): it mints a
+token, creates a `HOSTED_PAYMENT_PAGE` link via the Links API, and reads the result
+back. The App Key never reaches the browser.
 
 ## Requirements
 
 - JDK 21 or later
 - [Maven](https://maven.apache.org/)
-- A GP API sandbox account — [developer.globalpayments.com](https://developer.globalpayments.com)
+- A GP API sandbox account with an HPP/links-enabled app — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure
 
-- `src/main/java/com/globalpayments/example/ProcessPaymentServlet.java` — a single
-  servlet that handles all four routes (`/access-token`, `/process-payment`,
+- `src/main/java/com/globalpayments/example/HostedPaymentServlet.java` — a single
+  servlet that handles all four routes (`/create-hpp-link`, `/payment-status`,
   `/webhook`, `/webhook-events`)
-- `src/main/webapp/index.html` — shared Drop-In UI frontend
+- `src/main/webapp/index.html` — shared Hosted Payment Page frontend
 - `src/main/webapp/WEB-INF/web.xml` — servlet/web app descriptor
-- `pom.xml` — dependencies (`globalpayments-sdk`, `dotenv-java`, `jackson-databind`,
-  `jakarta.servlet-api`) and the Cargo/Tomcat 10 run configuration
+- `pom.xml` — dependencies (`dotenv-java`, `jackson-databind`, `jakarta.servlet-api`)
+  and the Cargo/Tomcat 10 run configuration
 - `.env.sample` — template for environment variables
 - `run.sh` — builds the WAR and runs it on Tomcat
 
 ## Setup
 
-1. Copy `.env.sample` to `.env` and fill in your GP API sandbox credentials:
+1. Copy `.env.sample` to `.env` (ships with working HPP sandbox credentials):
    ```
    GP_APP_ID=your_app_id
    GP_APP_KEY=your_app_key
    GP_MERCHANT_ID=your_merchant_id
-   GP_ACCOUNT_NAME=transaction_processing
+   GP_ACCOUNT_NAME=transaction_processing_hpp
    ```
 2. Run the application:
    ```bash
@@ -45,9 +45,9 @@ never reaches the browser.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/access-token` | Issues a `PMT_POST_Create_Single`-scoped token for the Drop-In UI |
-| `POST` | `/process-payment` | Charges the single-use `payment_reference` from the Drop-In UI |
-| `POST` | `/webhook` | Receives GP API transaction notifications |
+| `POST` | `/create-hpp-link` | Creates a `HOSTED_PAYMENT_PAGE` link; returns its hosted `url` + `reference` |
+| `GET` | `/payment-status` | Returns the outcome (`success` / `declined` / `pending`) for a `reference` |
+| `POST` | `/webhook` | Receives GP API notifications (the link's `status_url`) |
 | `GET` | `/webhook-events` | Returns the last 20 webhook events for the live UI log |
 
 ## Test card (sandbox)
@@ -58,7 +58,10 @@ Expiry      : any future date
 CVV         : any 3 digits
 ```
 
+3-D Secure 2 runs automatically on the hosted page; a successful sale settles `PREAUTHORIZED`.
+
 ## Production considerations
 
-- Verify the `X-GP-Signature` HMAC on incoming webhooks (see the commented block in `ProcessPaymentServlet.java`).
+- Verify the `X-GP-Signature` HMAC on incoming webhooks (see the commented block in `HostedPaymentServlet.java`).
+- Set `BASE_URL` to your public origin so the link's `status_url` reaches `/webhook`.
 - Serve over HTTPS and add input validation, rate limiting, and structured logging.

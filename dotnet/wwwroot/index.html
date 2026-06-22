@@ -1,552 +1,1184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Payments – Drop-In UI</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://globalpayments-samples.github.io/css/styles.css">
-    <script src="https://js.globalpay.com/v1/globalpayments.js"></script>
-    <style>
-        .gp-checkout-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            align-items: start;
-        }
-        @media (max-width: 768px) {
-            .gp-checkout-layout { grid-template-columns: 1fr; }
-        }
-        .gp-order-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .gp-order-total {
-            display: flex;
-            justify-content: space-between;
-            padding: 14px 0 4px;
-            font-size: 1.05em;
-        }
-        .gp-result-icon {
-            font-size: 3rem;
-            text-align: center;
-            margin-bottom: 12px;
-            line-height: 1;
-        }
-        .gp-result-icon.success { color: #16a34a; }
-        .gp-result-icon.decline { color: #dc2626; }
-        .gp-text-center { text-align: center; }
-        .gp-webhook-event {
-            padding: 8px 10px;
-            margin-bottom: 6px;
-            background: #f9fafb;
-            border-left: 3px solid #0b7fd4;
-            border-radius: 2px;
-            font-size: 0.8rem;
-        }
-        .gp-webhook-log { max-height: 280px; overflow-y: auto; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Payments – Hosted Payment Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Global Payments — Hosted Payment Page (HPP) sample
+   Design tokens (flattened, no @import) + component styles.
+   ============================================================ */
+
+/* ---- Color tokens ---- */
+:root {
+  --gp-white: #FFFFFF;
+  --gp-global-blue: #262AFF;
+  --gp-deep-blue: #1B1EC6;
+  --gp-black: #0C0C0C;
+  --gp-pulse-blue: #1CABFF;
+  --gp-sunshine:  #FFCC00;
+  --gp-creamsicle:#FDA052;
+  --gp-raspberry: #F4364C;
+  --gp-grape:     #87179D;
+  --gp-charcoal: #595959;
+  --gp-smoke:    #C4C4C4;
+  --gp-fog:      #EEEEEE;
+  --gp-haze:     #F4F4F4;
+  --gp-mist:     #F8F8F8;
+  --gp-success: #10B981;
+  --gp-warning: var(--gp-sunshine);
+  --gp-error:   var(--gp-raspberry);
+  --gp-info:    var(--gp-pulse-blue);
+
+  --text-strong:  var(--gp-black);
+  --text-body:    #1a1a1a;
+  --text-muted:   var(--gp-charcoal);
+  --text-on-brand:var(--gp-white);
+  --text-link:    var(--gp-global-blue);
+
+  --surface-page:   var(--gp-white);
+  --surface-card:   var(--gp-white);
+  --surface-subtle: var(--gp-mist);
+  --surface-muted:  var(--gp-haze);
+  --surface-inverse:var(--gp-black);
+
+  --border-subtle:  var(--gp-fog);
+  --border-default: var(--gp-smoke);
+  --border-strong:  var(--gp-charcoal);
+  --border-focus:   var(--gp-global-blue);
+
+  --brand:          var(--gp-global-blue);
+  --brand-hover:    var(--gp-deep-blue);
+  --focus-ring:     rgba(38, 42, 255, 0.10);
+
+  --success-surface: rgba(16, 185, 129, 0.10);
+  --success-ink:     #065f46;
+  --error-surface:   rgba(244, 54, 76, 0.10);
+  --error-ink:       #991b1b;
+  --warning-surface: rgba(255, 204, 0, 0.10);
+  --warning-ink:     #92400e;
+  --info-surface:    rgba(28, 171, 255, 0.10);
+  --info-ink:        #1e40af;
+}
+
+/* ---- Typography tokens ---- */
+:root {
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'SF Mono', 'Courier New', ui-monospace, monospace;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+
+  --text-2xs: 0.75rem;
+  --text-xs:  0.8125rem;
+  --text-sm:  0.875rem;
+  --text-base:1rem;
+  --text-md:  1.125rem;
+  --text-lg:  1.25rem;
+  --text-xl:  1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.5rem;
+
+  --leading-tight: 1.15;
+  --leading-snug:  1.3;
+  --leading-normal:1.6;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+
+  --type-display:  var(--weight-bold)     var(--text-3xl)/var(--leading-tight) var(--font-sans);
+  --type-h1:       var(--weight-bold)     var(--text-2xl)/var(--leading-snug)  var(--font-sans);
+  --type-h2:       var(--weight-semibold) var(--text-xl)/var(--leading-snug)   var(--font-sans);
+  --type-title:    var(--weight-semibold) var(--text-lg)/var(--leading-snug)   var(--font-sans);
+  --type-body:     var(--weight-regular)  var(--text-base)/var(--leading-normal) var(--font-sans);
+  --type-body-sm:  var(--weight-regular)  var(--text-sm)/var(--leading-normal) var(--font-sans);
+  --type-label:    var(--weight-medium)   var(--text-sm)/1.2 var(--font-sans);
+  --type-code:     var(--weight-regular)  var(--text-sm)/1.5 var(--font-mono);
+}
+
+/* ---- Spacing & layout tokens ---- */
+:root {
+  --gp-space-xs:  0.25rem;
+  --gp-space-sm:  0.5rem;
+  --gp-space-md:  1rem;
+  --gp-space-lg:  1.5rem;
+  --gp-space-xl:  2rem;
+  --gp-space-xxl: 3rem;
+
+  --container-max: 1200px;
+  --container-pad: var(--gp-space-lg);
+  --field-min:     200px;
+  --tap-target:    44px;
+}
+
+/* ---- Radii, shadows & effects ---- */
+:root {
+  --gp-radius-sm: 4px;
+  --gp-radius-md: 8px;
+  --gp-radius-lg: 12px;
+  --gp-radius-xl: 16px;
+  --radius-pill: 999px;
+  --radius-sm: var(--gp-radius-sm);
+  --radius-md: var(--gp-radius-md);
+  --radius-lg: var(--gp-radius-lg);
+  --radius-xl: var(--gp-radius-xl);
+
+  --gp-shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --gp-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --gp-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --shadow-sm: var(--gp-shadow-sm);
+  --shadow-md: var(--gp-shadow-md);
+  --shadow-lg: var(--gp-shadow-lg);
+
+  --ring-focus: 0 0 0 3px var(--focus-ring);
+
+  --gradient-brand: linear-gradient(135deg, var(--gp-global-blue) 0%, var(--gp-deep-blue) 100%);
+  --gradient-spectrum: linear-gradient(135deg, var(--gp-global-blue), var(--gp-pulse-blue));
+
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 0.15s;
+  --duration-base: 0.2s;
+  --lift: translateY(-1px);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--text-body);
+  background: var(--gp-mist);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: var(--text-link); }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--radius-sm);
+}
+.gp-container {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 var(--container-pad);
+}
+
+/* ---------- Header ---------- */
+.gp-header { background: var(--gradient-brand); color: var(--text-on-brand); }
+.gp-header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--gp-space-lg); height: 64px;
+}
+.gp-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: var(--weight-bold); font-size: var(--text-md); letter-spacing: -0.01em;
+}
+.gp-logo img { height: 26px; width: auto; display: block; }
+.gp-header-nav { display: flex; gap: var(--gp-space-lg); align-items: center; }
+.gp-header-nav a {
+  color: rgba(255,255,255,0.85); text-decoration: none;
+  font: var(--type-label); font-size: var(--text-sm);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color var(--duration-base) var(--ease-standard);
+}
+.gp-header-nav a:hover { color: #fff; }
+.gp-header-nav a svg { opacity: 0.75; }
+@media (max-width: 720px) { .gp-header-nav { display: none; } }
+
+/* ---------- Page intro ---------- */
+.gp-intro { padding: var(--gp-space-xxl) 0 var(--gp-space-xl); }
+.gp-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: var(--type-label); font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+  color: var(--brand); background: var(--info-surface);
+  padding: 5px 11px; border-radius: var(--radius-pill);
+  margin-bottom: var(--gp-space-md);
+}
+.gp-eyebrow::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gp-success); box-shadow: 0 0 0 3px var(--success-surface);
+}
+.gp-page-title {
+  font: var(--type-display); color: var(--text-strong);
+  margin: 0 0 12px; letter-spacing: var(--tracking-tight);
+}
+.gp-page-subtitle {
+  font: var(--type-body); font-size: var(--text-md); color: var(--text-muted);
+  margin: 0; max-width: 62ch; text-wrap: pretty;
+}
+.gp-page-subtitle code { font: var(--type-code); font-size: 0.86em; background: var(--gp-haze); padding: 1px 6px; border-radius: 4px; color: var(--text-strong); }
+
+/* ---------- Tab navigation ---------- */
+.gp-tabnav {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(248,248,248,0.85);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gp-tablist { display: flex; gap: var(--gp-space-xs); overflow-x: auto; scrollbar-width: none; }
+.gp-tablist::-webkit-scrollbar { display: none; }
+@media (max-width: 600px) {
+  .gp-tablist {
+    -webkit-mask-image: linear-gradient(to right, #000 86%, transparent);
+            mask-image: linear-gradient(to right, #000 86%, transparent);
+  }
+}
+.gp-tab {
+  appearance: none; background: none; border: none;
+  border-bottom: 2px solid transparent;
+  padding: 14px 6px; margin-right: var(--gp-space-lg);
+  display: inline-flex; align-items: center; gap: 9px;
+  font: var(--type-label); font-size: var(--text-base);
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  transition: color var(--duration-base) var(--ease-standard),
+              border-color var(--duration-base) var(--ease-standard);
+}
+.gp-tab:last-child { margin-right: 0; }
+.gp-tab .gp-tab-ico { display: inline-flex; color: currentColor; opacity: 0.9; }
+.gp-tab .gp-tab-num {
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+  width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--gp-fog); color: var(--text-muted);
+  transition: background var(--duration-base), color var(--duration-base);
+}
+.gp-tab:hover { color: var(--text-strong); }
+.gp-tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
+.gp-tab.is-active .gp-tab-num { background: var(--brand); color: #fff; }
+
+/* ---------- Tab panel + context header ---------- */
+.gp-main { padding: var(--gp-space-xl) 0 var(--gp-space-xxl); }
+.gp-panel[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .gp-panel.is-entering { animation: gpfade var(--duration-base) var(--ease-standard); }
+}
+@keyframes gpfade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.gp-ctx {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--gp-space-lg); margin-bottom: var(--gp-space-xl); flex-wrap: wrap;
+}
+.gp-ctx h2 { font: var(--type-h1); color: var(--text-strong); margin: 0 0 6px; }
+.gp-ctx p { font: var(--type-body); color: var(--text-muted); margin: 0; max-width: 56ch; text-wrap: pretty; }
+.gp-ctx p code { font: var(--type-code); font-size: 0.86em; background: var(--gp-haze); padding: 1px 5px; border-radius: 4px; color: var(--text-strong); }
+.gp-ctx-meta { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+
+/* ---------- Endpoint / scope chips ---------- */
+.gp-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: var(--type-code); font-size: var(--text-2xs);
+  color: var(--text-muted); background: var(--gp-white);
+  border: 1px solid var(--border-subtle);
+  padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap;
+}
+.gp-chip b { color: var(--text-strong); font-weight: var(--weight-semibold); }
+.gp-chip .gp-method { font-weight: var(--weight-semibold); color: var(--brand); }
+
+/* ---------- Cards ---------- */
+.gp-card {
+  background: var(--surface-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--gp-space-xl);
+}
+.gp-card + .gp-card { margin-top: var(--gp-space-lg); }
+.gp-card-head { margin-bottom: var(--gp-space-lg); }
+.gp-card-head h3 { font: var(--type-title); color: var(--text-strong); margin: 0; }
+.gp-card-head p { font: var(--type-body-sm); color: var(--text-muted); margin: 6px 0 0; }
+
+.gp-checkout-grid {
+  display: grid; grid-template-columns: 0.95fr 1fr;
+  gap: var(--gp-space-lg); align-items: start;
+}
+@media (max-width: 860px) { .gp-checkout-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Order summary ---------- */
+.gp-order-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-top: var(--gp-space-lg); margin-top: var(--gp-space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+.gp-order-total span { font: var(--type-body); color: var(--text-muted); }
+.gp-order-total strong {
+  font-size: var(--text-2xl); font-weight: var(--weight-bold);
+  color: var(--text-strong); letter-spacing: var(--tracking-tight);
+}
+
+/* Test-card helper */
+.gp-testcard {
+  margin-top: var(--gp-space-lg); border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md); padding: var(--gp-space-md); background: var(--gp-mist);
+}
+.gp-testcard-top {
+  display: flex; align-items: center; gap: 8px;
+  font: var(--type-label); font-size: var(--text-xs); color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: var(--tracking-wide); margin-bottom: 8px;
+}
+.gp-testcard-num { font: var(--type-code); font-size: var(--text-base); color: var(--text-strong); letter-spacing: 0.06em; }
+.gp-testcard-meta { font: var(--type-body-sm); color: var(--text-muted); margin: 2px 0 0; }
+
+/* ---------- Lifecycle stepper ---------- */
+.gp-steps { display: flex; align-items: center; gap: 0; margin-bottom: var(--gp-space-xl); }
+.gp-step { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.gp-step-dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--gp-fog); color: var(--text-muted);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); flex-shrink: 0;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+.gp-step-label { font: var(--type-label); font-size: var(--text-xs); color: var(--text-muted); transition: color var(--duration-base); }
+.gp-step-line {
+  flex: 1 1 auto; height: 2px; min-width: 18px; background: var(--gp-fog);
+  margin: 0 10px; transition: background var(--duration-base);
+}
+.gp-step[data-state="active"] .gp-step-dot { background: var(--brand); color: #fff; }
+.gp-step[data-state="active"] .gp-step-label { color: var(--brand); }
+.gp-step[data-state="done"] .gp-step-dot { background: var(--success-surface); color: var(--success-ink); }
+.gp-step[data-state="done"] + .gp-step-line { background: var(--gp-success); }
+
+/* ---------- Form fields ---------- */
+.gp-field { margin-bottom: var(--gp-space-md); }
+.gp-field:last-child { margin-bottom: 0; }
+.gp-label { display: block; font: var(--type-label); color: var(--text-strong); margin-bottom: 7px; }
+.gp-input, .gp-select {
+  width: 100%; font: var(--type-body); color: var(--text-body);
+  background: var(--gp-white); border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm); padding: 11px 13px; min-height: var(--tap-target);
+  transition: border-color var(--duration-base), box-shadow var(--duration-base);
+}
+.gp-input:focus, .gp-select:focus { outline: none; border-color: var(--border-focus); box-shadow: var(--ring-focus); }
+.gp-input::placeholder { color: var(--gp-smoke); }
+.gp-input-amount { position: relative; }
+.gp-input-amount .gp-amount-prefix {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); font: var(--type-body); pointer-events: none;
+}
+.gp-input-amount .gp-input { padding-left: 26px; }
+.gp-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gp-space-md); }
+
+/* ---------- Segmented control (display method) ---------- */
+.gp-segment {
+  display: inline-flex; padding: 4px; gap: 4px; background: var(--gp-haze);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md); width: 100%;
+}
+.gp-segment label {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font: var(--type-label); font-size: var(--text-sm); color: var(--text-muted);
+  padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; position: relative;
+  transition: background var(--duration-base), color var(--duration-base), box-shadow var(--duration-base);
+}
+.gp-segment input { position: absolute; opacity: 0; pointer-events: none; }
+.gp-segment label:has(input:checked) { background: var(--gp-white); color: var(--brand); box-shadow: var(--shadow-sm); }
+
+/* ---------- Toggle switches (value adds) ---------- */
+.gp-toggles { display: flex; flex-direction: column; gap: 0; }
+.gp-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--gp-space-md);
+  padding: 11px 0; border-bottom: 1px solid var(--border-subtle); cursor: pointer;
+}
+.gp-toggle:last-of-type { border-bottom: none; }
+.gp-toggle-text { display: flex; flex-direction: column; gap: 1px; }
+.gp-toggle-text .gp-toggle-name { font: var(--type-label); color: var(--text-strong); }
+.gp-toggle-text .gp-toggle-sub  { font: var(--type-body-sm); font-size: var(--text-2xs); color: var(--text-muted); }
+.gp-switch { position: relative; width: 40px; height: 23px; flex-shrink: 0; }
+.gp-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.gp-switch .gp-switch-track {
+  position: absolute; inset: 0; background: var(--gp-smoke); border-radius: var(--radius-pill);
+  transition: background var(--duration-base); pointer-events: none;
+}
+.gp-switch .gp-switch-track::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px;
+  background: #fff; border-radius: 50%; box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.gp-switch input:checked + .gp-switch-track { background: var(--brand); }
+.gp-switch input:checked + .gp-switch-track::after { transform: translateX(17px); }
+.gp-subselect { margin: 0 0 var(--gp-space-md) 0; }
+.gp-subselect[hidden] { display: none; }
+
+/* ---------- Hosted payment frame ---------- */
+.gp-hostframe-wrap {
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  overflow: hidden; background: var(--gp-white); min-height: 480px;
+}
+.gp-hostframe { width: 100%; min-height: 480px; border: 0; display: block; }
+.gp-host-note {
+  display: flex; align-items: center; gap: 7px; margin-top: var(--gp-space-md);
+  color: var(--text-muted); font: var(--type-body-sm); font-size: var(--text-xs);
+}
+.gp-host-note svg { flex-shrink: 0; color: var(--gp-success); }
+
+/* ---------- Buttons ---------- */
+.gp-btn {
+  appearance: none; font: var(--type-label); font-size: var(--text-base);
+  border-radius: var(--radius-sm); padding: 13px 22px; min-height: var(--tap-target);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  border: 1px solid transparent; text-decoration: none;
+  transition: transform var(--duration-base) var(--ease-standard),
+              box-shadow var(--duration-base) var(--ease-standard),
+              background var(--duration-base) var(--ease-standard), opacity var(--duration-base);
+}
+.gp-btn-primary { background: var(--gradient-brand); color: var(--text-on-brand); }
+.gp-btn-primary:hover { transform: var(--lift); box-shadow: var(--shadow-md); }
+.gp-btn-secondary { background: var(--gp-white); color: var(--brand); border-color: var(--brand); }
+.gp-btn-secondary:hover { background: var(--info-surface); }
+.gp-btn-full { width: 100%; }
+.gp-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+/* ---------- Alerts ---------- */
+.gp-alert {
+  border-radius: var(--radius-md); padding: 13px 15px; font: var(--type-body-sm);
+  display: flex; gap: 11px; align-items: flex-start;
+}
+.gp-alert[hidden] { display: none; }
+.gp-alert svg { flex-shrink: 0; margin-top: 1px; }
+.gp-alert strong { font-weight: var(--weight-semibold); }
+.gp-alert code { font: var(--type-code); font-size: 0.92em; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 4px; }
+.gp-alert-info { background: var(--info-surface); color: var(--info-ink); }
+.gp-alert-info svg { color: var(--gp-info); }
+.gp-alert-warning { background: var(--warning-surface); color: var(--warning-ink); }
+.gp-alert-warning svg { color: var(--gp-creamsicle); }
+.gp-alert-error { background: var(--error-surface); color: var(--error-ink); }
+.gp-alert-error svg { color: var(--gp-error); }
+
+/* ---------- Result states ---------- */
+.gp-result { text-align: center; padding: var(--gp-space-md) 0; }
+.gp-result[hidden] { display: none; }
+.gp-result-badge {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: var(--gp-space-md);
+}
+.gp-result-badge.success { background: var(--success-surface); color: var(--success-ink); }
+.gp-result-badge.decline { background: var(--error-surface); color: var(--error-ink); }
+.gp-result h3 { font: var(--type-h2); color: var(--text-strong); margin: 0 0 4px; }
+.gp-result p { font: var(--type-body); color: var(--text-muted); margin: 0 auto var(--gp-space-lg); max-width: 38ch; text-wrap: pretty; }
+.gp-result-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.gp-spinner {
+  width: 38px; height: 38px; margin: 0 auto var(--gp-space-md); border-radius: 50%;
+  border: 3px solid var(--gp-fog); border-top-color: var(--brand);
+  animation: gpspin 0.8s linear infinite;
+}
+@keyframes gpspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .gp-spinner { animation-duration: 2s; }
+  .gp-panel { animation: none; }
+}
+
+/* Receipt (readable success summary) */
+.gp-receipt {
+  text-align: left; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); overflow: hidden; margin: 0 0 var(--gp-space-lg);
+}
+.gp-receipt-row {
+  display: flex; justify-content: space-between; gap: var(--gp-space-md);
+  padding: 11px 15px; font: var(--type-body-sm); border-bottom: 1px solid var(--border-subtle);
+}
+.gp-receipt-row:last-child { border-bottom: none; }
+.gp-receipt-row .k { color: var(--text-muted); }
+.gp-receipt-row .v { color: var(--text-strong); font-weight: var(--weight-medium); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* ---------- Code block ---------- */
+.gp-code { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--gp-black); margin: 0; }
+.gp-code-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #1a1a1a; padding: 9px 13px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.gp-code-file { display: flex; align-items: center; gap: 8px; font: var(--type-code); font-size: var(--text-2xs); color: rgba(255,255,255,0.7); }
+.gp-code-file .gp-lang { text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--gp-pulse-blue); font-weight: var(--weight-medium); }
+.gp-copy {
+  appearance: none; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85); font: var(--type-label); font-size: var(--text-2xs);
+  padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background var(--duration-base);
+}
+.gp-copy:hover { background: rgba(255,255,255,0.16); }
+.gp-copy.copied { color: var(--gp-pulse-blue); }
+.gp-code pre {
+  margin: 0; background: var(--gp-black); color: #e8e8e8; font: var(--type-code);
+  font-size: var(--text-sm); padding: var(--gp-space-md) var(--gp-space-lg);
+  overflow-x: auto; line-height: 1.65;
+}
+.gp-code pre .tok-com { color: #7b8aa0; }
+.gp-code pre .tok-str { color: #9ece6a; }
+.gp-code pre .tok-key { color: #7aa2f7; }
+.gp-code pre .tok-fn  { color: #e0af68; }
+.gp-code pre .tok-num { color: #ff9e64; }
+
+/* ---------- Webhook live feed ---------- */
+.gp-feed-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--gp-space-md); }
+.gp-feed-head h3 { font: var(--type-title); color: var(--text-strong); margin: 0; display: flex; align-items: center; gap: 9px; }
+.gp-feed-tools { display: flex; align-items: center; gap: 10px; }
+.gp-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gp-success); box-shadow: 0 0 0 4px var(--success-surface); animation: gppulse 2s ease-in-out infinite; }
+@keyframes gppulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.gp-refresh {
+  appearance: none; background: var(--gp-white); border: 1px solid var(--border-default);
+  color: var(--text-muted); font: var(--type-label); font-size: var(--text-2xs);
+  padding: 5px 11px; border-radius: var(--radius-pill); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: color var(--duration-base), border-color var(--duration-base);
+}
+.gp-refresh:hover { color: var(--brand); border-color: var(--brand); }
+.gp-feed { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
+.gp-feed-empty {
+  text-align: center; padding: var(--gp-space-xl); color: var(--text-muted); font: var(--type-body-sm);
+  border: 1px dashed var(--border-default); border-radius: var(--radius-md);
+}
+.gp-feed-empty[hidden] { display: none; }
+.gp-event {
+  display: flex; align-items: center; gap: var(--gp-space-md); padding: 11px 13px;
+  background: var(--gp-white); border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--gp-global-blue); border-radius: var(--radius-sm);
+  animation: gpslidein var(--duration-base) var(--ease-standard);
+}
+@keyframes gpslidein { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.gp-event-type { font: var(--type-label); font-size: var(--text-xs); color: var(--text-strong); }
+.gp-event-id { font: var(--type-code); font-size: var(--text-2xs); color: var(--text-muted); }
+.gp-event-time { margin-left: auto; font: var(--type-body-sm); font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap; }
+
+/* ---------- Badge ---------- */
+.gp-badge { display: inline-flex; align-items: center; gap: 6px; font: var(--type-label); font-size: var(--text-2xs); padding: 4px 10px; border-radius: var(--radius-pill); }
+.gp-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.gp-badge-success { background: var(--success-surface); color: var(--success-ink); }
+.gp-badge-info { background: var(--info-surface); color: var(--info-ink); }
+
+/* ---------- Footer ---------- */
+.gp-footer { background: var(--surface-inverse); color: rgba(255,255,255,0.7); margin-top: var(--gp-space-xxl); }
+.gp-footer-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--gp-space-lg); padding: var(--gp-space-xl) 0; flex-wrap: wrap;
+}
+.gp-footer-copy { font: var(--type-body-sm); font-size: var(--text-xs); margin: 0; }
+.gp-footer-nav { display: flex; gap: var(--gp-space-lg); }
+.gp-footer-nav a { color: rgba(255,255,255,0.7); text-decoration: none; font: var(--type-body-sm); font-size: var(--text-xs); }
+.gp-footer-nav a:hover { color: #fff; }
+</style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="gp-header">
-        <div class="gp-container">
-            <div class="gp-header-content">
-                <div class="gp-logo">
-                    <picture>
-                        <source media="(min-width: 768px)" srcset="https://globalpayments-samples.github.io/assets/img/GP_logo.svg">
-                        <img src="https://globalpayments-samples.github.io/assets/img/GP_favicon.svg" alt="Global Payments" style="height: 32px; width: auto;">
-                    </picture>
-                </div>
-                <nav class="gp-header-nav">
-                    <a href="https://developer.globalpayments.com/">Documentation</a>
-                    <a href="https://developer.globalpayments.com/api/references-overview">API Reference</a>
-                    <a href="https://developer.globalpayments.com/docs/integration-options/sdk/overview">SDKs</a>
-                </nav>
-            </div>
+
+<!-- ============================================================ HEADER -->
+<header class="gp-header">
+  <div class="gp-container gp-header-inner">
+    <div class="gp-logo">
+      <img src="https://globalpayments-samples.github.io/assets/img/GP_logo.svg" alt="Global Payments" onerror="this.style.display='none'; this.nextElementSibling.hidden=false;">
+      <span hidden>Global Payments</span>
+    </div>
+    <nav class="gp-header-nav" aria-label="Developer resources">
+      <a href="https://developer.globalpayments.com/" target="_blank" rel="noopener">Documentation</a>
+      <a href="https://developer.globalpayments.com/api/references-overview" target="_blank" rel="noopener">API Reference</a>
+      <a href="https://developer.globalpayments.com/docs/payments/online/pay-by-link-overview" target="_blank" rel="noopener">
+        Hosted Payments
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3h8v8M13 3 4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============================================================ INTRO -->
+<div class="gp-container gp-intro">
+  <span class="gp-eyebrow">Live sandbox sample</span>
+  <h1 class="gp-page-title">Hosted Payment Page &mdash; GP API Integration</h1>
+  <p class="gp-page-subtitle">
+    The merchant server creates a <code>HOSTED_PAYMENT_PAGE</code> link via the GP API Links API
+    and hands the browser a Global&nbsp;Payments-hosted URL. Card entry, 3-D Secure, digital wallets
+    and the result are all handled on the hosted page &mdash; raw card data never touches your server.
+  </p>
+</div>
+
+<!-- ============================================================ TAB NAV -->
+<nav class="gp-tabnav" aria-label="Sample sections">
+  <div class="gp-container">
+    <div class="gp-tablist" role="tablist" aria-label="Hosted Payment Page samples">
+      <button class="gp-tab gp-tab-button is-active" role="tab" id="tab-hpp" aria-controls="panel-hpp" aria-selected="true" data-tab="hpp">
+        <span class="gp-tab-num">1</span>
+        <span class="gp-tab-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2" y="4.5" width="16" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        Hosted Payment Page
+      </button>
+      <button class="gp-tab gp-tab-button" role="tab" id="tab-webhooks" aria-controls="panel-webhooks" aria-selected="false" tabindex="-1" data-tab="webhooks">
+        <span class="gp-tab-num">2</span>
+        <span class="gp-tab-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M7 7.5a3 3 0 1 1 4.2 2.7L9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="15" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="12" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M9 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Webhooks
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="gp-container gp-main">
+
+  <!-- ======================================================= PANEL 1: HOSTED PAYMENT PAGE -->
+  <section class="gp-panel" role="tabpanel" id="panel-hpp" aria-labelledby="tab-hpp">
+    <div class="gp-ctx">
+      <div>
+        <h2>Hosted Payment Page</h2>
+        <p>Configure the transaction, then proceed to a Global&nbsp;Payments-hosted page that collects the card, runs 3-D Secure, and returns the result.</p>
+      </div>
+      <div class="gp-ctx-meta">
+        <span class="gp-chip"><span class="gp-method">POST</span> <b>/create-hpp-link</b></span>
+        <span class="gp-chip">type <b>HOSTED_PAYMENT_PAGE</b></span>
+      </div>
+    </div>
+
+    <div class="gp-checkout-grid">
+      <!-- Configuration + order -->
+      <div class="gp-card">
+        <div class="gp-card-head">
+          <h3>Transaction configuration</h3>
+          <p>These options are passed into the link request and shape the hosted page.</p>
         </div>
-    </header>
 
-    <div class="gp-container">
-        <h1 class="gp-page-title">Drop-In UI – GP API Integration</h1>
-        <p class="gp-page-subtitle">Full payment lifecycle using Global Payments Drop-In UI with single-use tokenization, 3DS iframe succession, and webhook notifications.</p>
-
-        <div class="gp-tabs">
-            <div class="gp-tab-list">
-                <button class="gp-tab-button active" data-tab="payment-form">Payment Form</button>
-                <button class="gp-tab-button" data-tab="tokenization">Tokenization</button>
-                <button class="gp-tab-button" data-tab="webhooks">Webhooks</button>
-                <button class="gp-tab-button" data-tab="recurring">Recurring Payments</button>
-            </div>
-
-            <!-- ============================================================
-                 TAB 1: PAYMENT FORM
-                 HomeMerchant layout — order summary + Drop-In UI payment panel
-                 The payment panel demonstrates iframe succession:
-                   card entry → (3DS challenge in same frame) → result
-                 ============================================================ -->
-            <div class="gp-tab-content active" id="payment-form">
-                <div class="gp-checkout-layout">
-
-                    <!-- Order Summary (merchant cart) -->
-                    <div class="gp-card">
-                        <div class="gp-card-header">
-                            <h2 class="gp-card-title">Order Summary</h2>
-                        </div>
-                        <div class="gp-order-item">
-                            <span>Premium Subscription</span>
-                            <span>$15.00</span>
-                        </div>
-                        <div class="gp-order-item">
-                            <span>Setup Fee</span>
-                            <span>$4.99</span>
-                        </div>
-                        <div class="gp-order-total">
-                            <span>Total</span>
-                            <strong>$19.99 USD</strong>
-                        </div>
-                        <div class="gp-alert gp-alert-info" style="margin-top: 20px;">
-                            <strong>Sandbox Test Card</strong><br>
-                            4263970000005262<br>
-                            Exp: any future date &nbsp;·&nbsp; CVV: any 3 digits
-                        </div>
-                    </div>
-
-                    <!-- Payment Panel — iframe succession zone -->
-                    <div class="gp-card">
-
-                        <!-- State A: Payment form (default) -->
-                        <div id="payment-form-state">
-                            <div class="gp-card-header">
-                                <h2 class="gp-card-title">Payment Details</h2>
-                                <p class="gp-card-description">Secured by Global Payments Drop-In UI</p>
-                            </div>
-                            <div class="gp-form-group">
-                                <label for="pay-amount" class="gp-label">Amount (USD):</label>
-                                <input type="number" id="pay-amount" class="gp-input" min="0.01" step="0.01" value="19.99">
-                            </div>
-                            <div class="gp-form-group">
-                                <label class="gp-label">Card Details:</label>
-                                <!-- Drop-In UI mounts its secure iframe here -->
-                                <div id="credit-card"></div>
-                            </div>
-                            <div id="pay-error" class="gp-alert gp-alert-error gp-hidden"></div>
-                        </div>
-
-                        <!-- State B: Processing -->
-                        <div id="payment-processing-state" class="gp-hidden gp-text-center">
-                            <div class="gp-card-header">
-                                <h2 class="gp-card-title">Processing…</h2>
-                                <p class="gp-card-description">Please do not close this window.</p>
-                            </div>
-                        </div>
-
-                        <!-- State C: Success -->
-                        <div id="payment-success-state" class="gp-hidden gp-text-center">
-                            <div class="gp-result-icon success">✓</div>
-                            <h2 class="gp-card-title">Payment Successful</h2>
-                            <div id="payment-result-details" class="gp-code-block" style="text-align:left; margin: 16px 0;"></div>
-                            <div class="gp-form-row" style="justify-content: center; gap: 12px; margin-top: 8px;">
-                                <button id="restart-btn" class="gp-button gp-button-secondary">Restart Transaction</button>
-                                <a href="https://developer.globalpayments.com/api/references-overview" target="_blank" class="gp-button gp-button-primary">View Reporting</a>
-                            </div>
-                        </div>
-
-                        <!-- State D: Declined -->
-                        <div id="payment-decline-state" class="gp-hidden gp-text-center">
-                            <div class="gp-result-icon decline">✕</div>
-                            <h2 class="gp-card-title">Payment Declined</h2>
-                            <p id="decline-message" class="gp-card-description"></p>
-                            <button id="retry-btn" class="gp-button gp-button-primary" style="margin-top: 16px;">Try Again</button>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============================================================
-                 TAB 2: TOKENIZATION
-                 Demonstrates single-use token generation via Drop-In UI.
-                 The raw card data never reaches the merchant server.
-                 ============================================================ -->
-            <div class="gp-tab-content" id="tokenization">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Single-Use Tokenization</h2>
-                        <p class="gp-card-description">
-                            The Drop-In UI tokenizes the card in a secure iframe and returns a
-                            <code>paymentReference</code>. Your backend charges that reference once via the GP API SDK —
-                            raw card data never touches your server.
-                        </p>
-                    </div>
-
-                    <div class="gp-alert gp-alert-info">
-                        <strong>Flow:</strong>
-                        Backend generates access token (<code>PMT_POST_Create_Single</code> scope) →
-                        Drop-In UI tokenizes card in iframe →
-                        <code>token-success</code> event fires with <code>paymentReference</code> →
-                        backend charges reference via SDK.
-                    </div>
-
-                    <div class="gp-form-group">
-                        <label class="gp-label">Card Information:</label>
-                        <div id="credit-card-token"></div>
-                    </div>
-
-                    <div id="token-result" class="gp-hidden">
-                        <h3 class="gp-card-title" style="margin-top: 24px;">Token Response:</h3>
-                        <div class="gp-code-block" id="token-display"></div>
-                    </div>
-                    <div id="token-error" class="gp-alert gp-alert-error gp-hidden"></div>
-                </div>
-            </div>
-
-            <!-- ============================================================
-                 TAB 3: WEBHOOKS
-                 Production-ready webhook handler pattern.
-                 Live event log shows notifications from completed payments.
-                 ============================================================ -->
-            <div class="gp-tab-content" id="webhooks">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Webhook Integration</h2>
-                        <p class="gp-card-description">
-                            Set <code>notifications.status_url</code> in your transaction payload to receive
-                            real-time GP API events at <code>POST /webhook</code>.
-                        </p>
-                    </div>
-
-                    <div class="gp-alert gp-alert-warning">
-                        <strong>Security:</strong> Always verify the <code>X-GP-Signature</code> header using
-                        HMAC-SHA256 with your webhook secret before processing any event payload.
-                    </div>
-
-                    <div class="gp-code-block">// Node.js / Express — production webhook handler
-app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-    const signature  = req.headers['x-gp-signature'];
-    const expected   = crypto
-        .createHmac('sha256', process.env.GP_WEBHOOK_SECRET)
-        .update(req.body)
-        .digest('hex');
-
-    if (signature !== expected) return res.status(401).send('Unauthorized');
-
-    const event = JSON.parse(req.body.toString());
-    // event.type     → 'TRANSACTION_CREATED' | 'TRANSACTION_CAPTURED' | ...
-    // event.id       → notification ID
-    // event.content  → array of transaction objects (GP API response payload)
-
-    switch (event.type) {
-        case 'TRANSACTION_CREATED':   handleNewTransaction(event.content[0]);  break;
-        case 'TRANSACTION_CAPTURED':  handleCapture(event.content[0]);         break;
-        case 'TRANSACTION_REVERSED':  handleReversal(event.content[0]);        break;
-    }
-    res.status(200).send('OK');
-});</div>
-
-                    <h3 class="gp-card-title" style="margin-top: 24px;">Live Event Log</h3>
-                    <p class="gp-card-description">Complete a payment on Tab 1 then refresh to see the notification arrive.</p>
-                    <div id="webhook-log" class="gp-webhook-log gp-code-block">
-                        <em>No events yet. Complete a payment to see webhook notifications here.</em>
-                    </div>
-                    <button id="refresh-webhooks" class="gp-button gp-button-secondary" style="margin-top: 10px;">↻ Refresh Events</button>
-                </div>
-            </div>
-
-            <!-- ============================================================
-                 TAB 4: RECURRING PAYMENTS
-                 Shows the stored-credential pattern for subscription billing.
-                 ============================================================ -->
-            <div class="gp-tab-content" id="recurring">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Recurring Payments</h2>
-                        <p class="gp-card-description">
-                            Tokenize a card once, then use the stored credential for scheduled billing cycles
-                            using <code>StoredCredentialInitiator.Merchant</code>.
-                        </p>
-                    </div>
-
-                    <div class="gp-alert gp-alert-info">
-                        <strong>Pattern:</strong>
-                        Step 1 — Drop-In UI tokenizes the card (initial consent transaction).
-                        Step 2 — Backend schedules future charges using the stored <code>paymentReference</code>
-                        with <code>initiator: Merchant</code> and a stored credential sequence.
-                    </div>
-
-                    <div class="gp-form-row">
-                        <div class="gp-form-group">
-                            <label for="rec-amount" class="gp-label">Amount (USD):</label>
-                            <input type="number" id="rec-amount" class="gp-input" min="1.00" step="0.01" value="29.99">
-                        </div>
-                        <div class="gp-form-group">
-                            <label for="rec-cycle" class="gp-label">Billing Cycle:</label>
-                            <select id="rec-cycle" class="gp-select">
-                                <option value="monthly">Monthly</option>
-                                <option value="quarterly">Quarterly</option>
-                                <option value="annually">Annually</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="gp-form-group">
-                        <label class="gp-label">Card to Enrol:</label>
-                        <div id="credit-card-recurring"></div>
-                    </div>
-
-                    <div id="rec-result" class="gp-hidden">
-                        <h3 class="gp-card-title" style="margin-top: 24px;">Subscription Enrolled:</h3>
-                        <div class="gp-code-block" id="rec-display"></div>
-                    </div>
-                    <div id="rec-error" class="gp-alert gp-alert-error gp-hidden"></div>
-                </div>
-            </div>
-
-        </div><!-- /gp-tabs -->
-    </div><!-- /gp-container -->
-
-    <!-- Footer
-         DEVELOPER NOTE: Replace company name and update policy links before going live.
-         Refund Policy is required by most payment processor underwriting agreements. -->
-    <footer class="gp-footer">
-        <div class="gp-container">
-            <div class="gp-footer-content">
-                <div class="gp-footer-section">
-                    <p class="gp-footer-copyright">© 2025– Your Company Name. All rights reserved.</p>
-                </div>
-                <div class="gp-footer-section">
-                    <nav class="gp-footer-nav">
-                        <a href="/terms-of-service" class="gp-footer-link">Terms of Service</a>
-                        <a href="/privacy-policy" class="gp-footer-link">Privacy Policy</a>
-                        <a href="/refund-policy" class="gp-footer-link">Refund Policy</a>
-                    </nav>
-                </div>
-            </div>
+        <div class="gp-field-row">
+          <div class="gp-field gp-input-amount">
+            <label class="gp-label" for="cfg-amount">Amount</label>
+            <span class="gp-amount-prefix">$</span>
+            <input class="gp-input" type="number" id="cfg-amount" min="0.01" step="0.01" value="200.00">
+          </div>
+          <div class="gp-field">
+            <label class="gp-label" for="cfg-currency">Currency</label>
+            <select class="gp-select" id="cfg-currency">
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — Pound Sterling</option>
+              <option value="CAD">CAD — Canadian Dollar</option>
+            </select>
+          </div>
         </div>
-    </footer>
 
-    <script>
-    // =============================================================
-    //  Global Payments — Drop-In UI lifecycle
-    //
-    //  Flow:
-    //  1. Backend generates a limited-scope access token
-    //     (PMT_POST_Create_Single) via /access-token
-    //  2. GlobalPayments.configure() activates the SDK
-    //  3. creditCard.form() mounts a secure iframe (Drop-In UI)
-    //  4. User enters card; SDK tokenizes within the iframe (3DS
-    //     challenge also handled inside the same iframe — iframe
-    //     succession — no parent page redirect ever occurs)
-    //  5. token-success event fires with a single-use paymentReference
-    //  6. Frontend POSTs reference to /process-payment
-    //  7. Backend charges via GP API SDK; returns result
-    //  8. UI transitions to success or decline state
-    // =============================================================
+        <div class="gp-field">
+          <label class="gp-label">Display method</label>
+          <div class="gp-segment" role="radiogroup" aria-label="Display method">
+            <label><input type="radio" name="display" value="iframe" checked> Iframe</label>
+            <label><input type="radio" name="display" value="redirect"> Redirect</label>
+          </div>
+        </div>
 
-    // --- State helpers ---
-    const PAYMENT_STATES = [
-        'payment-form-state',
-        'payment-processing-state',
-        'payment-success-state',
-        'payment-decline-state'
-    ];
+        <div class="gp-field">
+          <label class="gp-label">Value adds</label>
+          <div class="gp-toggles">
+            <label class="gp-toggle">
+              <span class="gp-toggle-text"><span class="gp-toggle-name">3-D Secure</span><span class="gp-toggle-sub">Authenticate the cardholder on the hosted page</span></span>
+              <span class="gp-switch"><input type="checkbox" id="cfg-threeds" checked><span class="gp-switch-track"></span></span>
+            </label>
+            <label class="gp-toggle">
+              <span class="gp-toggle-text"><span class="gp-toggle-name">Card storage</span><span class="gp-toggle-sub">Offer to save the card for future payments</span></span>
+              <span class="gp-switch"><input type="checkbox" id="cfg-cardstorage"><span class="gp-switch-track"></span></span>
+            </label>
+            <div class="gp-subselect" id="cfg-cardstorage-user-wrap" hidden>
+              <select class="gp-select" id="cfg-cardstorage-user">
+                <option value="guest">Guest checkout</option>
+                <option value="registered">Registered customer</option>
+              </select>
+            </div>
+            <label class="gp-toggle">
+              <span class="gp-toggle-text"><span class="gp-toggle-name">Dynamic currency conversion</span><span class="gp-toggle-sub">Let the cardholder pay in their home currency</span></span>
+              <span class="gp-switch"><input type="checkbox" id="cfg-dcc"><span class="gp-switch-track"></span></span>
+            </label>
+            <label class="gp-toggle">
+              <span class="gp-toggle-text"><span class="gp-toggle-name">Digital wallets</span><span class="gp-toggle-sub">Google Pay / Apple Pay (account-provisioned)</span></span>
+              <span class="gp-switch"><input type="checkbox" id="cfg-wallets"><span class="gp-switch-track"></span></span>
+            </label>
+            <label class="gp-toggle">
+              <span class="gp-toggle-text"><span class="gp-toggle-name">Alternative payment methods</span><span class="gp-toggle-sub">PayPal and other APMs (account-provisioned)</span></span>
+              <span class="gp-switch"><input type="checkbox" id="cfg-apm"><span class="gp-switch-track"></span></span>
+            </label>
+          </div>
+        </div>
 
-    function showPaymentState(id) {
-        PAYMENT_STATES.forEach(s =>
-            document.getElementById(s).classList.toggle('gp-hidden', s !== id));
-    }
+        <div class="gp-order-total">
+          <span>Total due</span>
+          <strong id="cfg-total">$200.00</strong>
+        </div>
 
-    // Track which tabs have already had their Drop-In UI mounted
-    const mounted = { payment: false, tokenization: false, recurring: false };
+        <div class="gp-testcard">
+          <div class="gp-testcard-top">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M2 7h12" stroke="currentColor" stroke-width="1.3"/></svg>
+            Sandbox test card
+          </div>
+          <div class="gp-testcard-num">4263 9700 0000 5262</div>
+          <div class="gp-testcard-meta">Enter this card on the hosted page · any future expiry · any 3-digit CVV</div>
+        </div>
+      </div>
 
-    // --- SDK initialisation ---
-    async function initDropInUI() {
-        try {
-            const resp = await fetch('/access-token');
-            const data = await resp.json();
+      <!-- Payment surface -->
+      <div class="gp-card">
+        <!-- Lifecycle stepper -->
+        <div class="gp-steps" id="pay-steps" aria-hidden="true">
+          <div class="gp-step" data-step="configure" data-state="active">
+            <span class="gp-step-dot">1</span><span class="gp-step-label">Configure</span>
+          </div>
+          <span class="gp-step-line"></span>
+          <div class="gp-step" data-step="pay">
+            <span class="gp-step-dot">2</span><span class="gp-step-label">Hosted page</span>
+          </div>
+          <span class="gp-step-line"></span>
+          <div class="gp-step" data-step="result">
+            <span class="gp-step-dot">3</span><span class="gp-step-label">Result</span>
+          </div>
+        </div>
 
-            if (!data.token) throw new Error(data.error || 'No access token received');
+        <!-- State A: ready to start -->
+        <div id="state-config" aria-live="polite">
+          <div class="gp-card-head">
+            <h3>Ready to pay</h3>
+            <p>Click below to create the hosted payment link and open the Global&nbsp;Payments page.</p>
+          </div>
+          <button class="gp-btn gp-btn-primary gp-btn-full" id="proceed-btn" type="button">Proceed to Payment</button>
+          <div class="gp-alert gp-alert-error" id="pay-error" hidden style="margin-top: var(--gp-space-md);"></div>
+        </div>
 
-            GlobalPayments.configure({
-                accessToken: data.token,
-                env:         data.env || 'sandbox',
-                apiVersion:  '2021-03-22'
-            });
+        <!-- State B: hosted page (iframe) -->
+        <div id="state-hosted" hidden aria-live="polite">
+          <div class="gp-hostframe-wrap">
+            <iframe class="gp-hostframe" id="hosted-frame" title="Global Payments Hosted Payment Page" allow="payment *"></iframe>
+          </div>
+          <div class="gp-host-note">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.3"/></svg>
+            Secured by Global Payments · waiting for the payment to complete…
+          </div>
+        </div>
 
-            // Only mount the initially-visible tab — others are lazy-loaded on click
-            mountPaymentForm();
-        } catch (err) {
-            const el = document.getElementById('pay-error');
-            el.textContent = 'Initialisation error: ' + err.message;
-            el.classList.remove('gp-hidden');
-        }
-    }
+        <!-- State C: processing -->
+        <div id="state-processing" class="gp-result" hidden aria-live="polite">
+          <div class="gp-spinner"></div>
+          <h3 id="processing-title">Opening hosted page…</h3>
+          <p>Creating the secure payment link. Please don't close this window.</p>
+        </div>
 
-    // --- Tab 1: Payment Form ---
-    function mountPaymentForm() {
-        if (mounted.payment) return;
-        mounted.payment = true;
-        const form = GlobalPayments.creditCard.form('#credit-card', {
-            style: 'gp-default',
-            labels: {
-                cardNumber:     'Card Number',
-                cardExpiration: 'Expiry Date',
-                cardCvv:        'CVV',
-                cardHolder:     'Cardholder Name'
-            },
-            placeholders: {
-                cardNumber:     '•••• •••• •••• ••••',
-                cardExpiration: 'MM / YY',
-                cardCvv:        '•••',
-                cardHolder:     'Full Name'
-            }
-        });
+        <!-- State D: success -->
+        <div id="state-success" class="gp-result" hidden aria-live="polite">
+          <div class="gp-result-badge success">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 12 4 4 8-8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Payment successful</h3>
+          <p>The hosted payment completed. If you've registered a webhook endpoint, a notification will be sent to it.</p>
+          <div class="gp-receipt" id="success-receipt"></div>
+          <div class="gp-result-actions">
+            <button class="gp-btn gp-btn-secondary" id="restart-btn" type="button">New transaction</button>
+            <a class="gp-btn gp-btn-primary" href="https://developer.globalpayments.com/api/references-overview" target="_blank" rel="noopener">View API reference</a>
+          </div>
+        </div>
 
-        form.on('submit', () => showPaymentState('payment-processing-state'));
+        <!-- State E: declined / cancelled -->
+        <div id="state-decline" class="gp-result" hidden aria-live="assertive">
+          <div class="gp-result-badge decline">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Payment not completed</h3>
+          <p id="decline-message">The payment was declined or cancelled on the hosted page. No charge was made.</p>
+          <div class="gp-result-actions">
+            <button class="gp-btn gp-btn-primary" id="retry-btn" type="button">Try again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        form.on('token-success', async (resp) => {
-            try {
-                const amount = document.getElementById('pay-amount').value;
-                const res    = await fetch('/process-payment', {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({
-                        payment_reference: resp.paymentReference,
-                        amount
-                    })
-                });
-                const result = await res.json();
+  <!-- ======================================================= PANEL 2: WEBHOOKS -->
+  <section class="gp-panel" role="tabpanel" id="panel-webhooks" aria-labelledby="tab-webhooks" hidden>
+    <div class="gp-ctx">
+      <div>
+        <h2>Webhook notifications</h2>
+        <p>The link's <code>notifications.status_url</code> receives real-time GP API events as the hosted payment progresses. Verify every signature before processing.</p>
+      </div>
+      <div class="gp-ctx-meta">
+        <span class="gp-chip"><span class="gp-method">POST</span> <b>/webhook</b></span>
+        <span class="gp-chip">header <b>X-GP-Signature</b></span>
+      </div>
+    </div>
 
-                if (result.success) {
-                    document.getElementById('payment-result-details').textContent =
-                        JSON.stringify({
-                            transactionId: result.transactionId,
-                            amount:        result.amount,
-                            status:        result.status,
-                            card:          result.cardDetails
-                        }, null, 2);
-                    showPaymentState('payment-success-state');
-                } else {
-                    document.getElementById('decline-message').textContent =
-                        result.error || 'Payment declined by issuer.';
-                    showPaymentState('payment-decline-state');
-                }
-            } catch (err) {
-                document.getElementById('decline-message').textContent =
-                    'Network error: ' + err.message;
-                showPaymentState('payment-decline-state');
-            }
-        });
+    <div class="gp-checkout-grid">
+      <div class="gp-card">
+        <div class="gp-card-head"><h3>Handler</h3></div>
+        <div class="gp-alert gp-alert-warning" style="margin-bottom: var(--gp-space-md);">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1 1 14h14L8 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v4M8 12h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span>Always verify <code>X-GP-Signature</code> (HMAC-SHA256 with your webhook secret) before trusting any payload.</span>
+        </div>
+        <div class="gp-code">
+          <div class="gp-code-bar">
+            <span class="gp-code-file"><span class="gp-lang">Node</span> webhook.js</span>
+            <button class="gp-copy" data-copy="wh-code" type="button">Copy</button>
+          </div>
+          <pre id="wh-code"><span class="tok-com">// Production webhook handler</span>
+app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, express.<span class="tok-fn">raw</span>({ type: <span class="tok-str">'*/*'</span> }), (req, res) =&gt; {
+  <span class="tok-key">const</span> signature = req.headers[<span class="tok-str">'x-gp-signature'</span>];
+  <span class="tok-key">const</span> expected  = crypto
+    .<span class="tok-fn">createHmac</span>(<span class="tok-str">'sha256'</span>, process.env.<span class="tok-num">GP_WEBHOOK_SECRET</span>)
+    .<span class="tok-fn">update</span>(req.body)
+    .<span class="tok-fn">digest</span>(<span class="tok-str">'hex'</span>);
 
-        form.on('token-error', (resp) => {
-            const el = document.getElementById('pay-error');
-            el.textContent = (resp.error && resp.error.message) || 'Card tokenization failed.';
-            el.classList.remove('gp-hidden');
-            showPaymentState('payment-form-state');
-        });
+  <span class="tok-key">if</span> (signature !== expected) <span class="tok-key">return</span> res.<span class="tok-fn">status</span>(<span class="tok-num">401</span>).<span class="tok-fn">send</span>(<span class="tok-str">'Unauthorized'</span>);
 
-        document.getElementById('restart-btn').addEventListener('click', () => {
-            document.getElementById('pay-error').classList.add('gp-hidden');
-            showPaymentState('payment-form-state');
-        });
-        document.getElementById('retry-btn').addEventListener('click', () => {
-            document.getElementById('pay-error').classList.add('gp-hidden');
-            showPaymentState('payment-form-state');
-        });
-    }
+  <span class="tok-key">const</span> event = <span class="tok-fn">JSON.parse</span>(req.body.<span class="tok-fn">toString</span>());
+  <span class="tok-key">switch</span> (event.type) {
+    <span class="tok-key">case</span> <span class="tok-str">'TRANSACTION_PREAUTHORIZED'</span>: <span class="tok-fn">handleAuth</span>(event.content[<span class="tok-num">0</span>]); <span class="tok-key">break</span>;
+    <span class="tok-key">case</span> <span class="tok-str">'TRANSACTION_CAPTURED'</span>:      <span class="tok-fn">handleCapture</span>(event.content[<span class="tok-num">0</span>]); <span class="tok-key">break</span>;
+  }
+  res.<span class="tok-fn">status</span>(<span class="tok-num">200</span>).<span class="tok-fn">send</span>(<span class="tok-str">'OK'</span>);
+});</pre>
+        </div>
+      </div>
 
-    // --- Tab 2: Tokenization (token only, no charge) ---
-    function mountTokenForm() {
-        if (mounted.tokenization) return;
-        mounted.tokenization = true;
-        const form = GlobalPayments.creditCard.form('#credit-card-token', {
-            style: 'gp-default'
-        });
-        form.on('token-success', (resp) => {
-            document.getElementById('token-display').textContent =
-                JSON.stringify(resp, null, 2);
-            document.getElementById('token-result').classList.remove('gp-hidden');
-            document.getElementById('token-error').classList.add('gp-hidden');
-        });
-        form.on('token-error', (resp) => {
-            const el = document.getElementById('token-error');
-            el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
-            el.classList.remove('gp-hidden');
-        });
-    }
+      <div class="gp-card">
+        <div class="gp-feed-head">
+          <h3><span class="gp-live-dot" aria-hidden="true"></span> Live event feed</h3>
+          <div class="gp-feed-tools">
+            <span class="gp-badge gp-badge-info" id="wh-count">0 events</span>
+            <button class="gp-refresh" id="refresh-webhooks" type="button">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8a5 5 0 0 1 8.5-3.5L13 6M13 3v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8a5 5 0 0 1-8.5 3.5L3 10M3 13v-3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <p style="font: var(--type-body-sm); color: var(--text-muted); margin: 0 0 var(--gp-space-md);">
+          The GP sandbox can only deliver to a publicly reachable <code>status_url</code> — set <code>BASE_URL</code>
+          to a tunnel (e.g. ngrok) so the link's <code>status_url</code> resolves to this <code>/webhook</code> and live events appear here.
+        </p>
+        <div class="gp-feed" id="webhook-feed">
+          <div class="gp-feed-empty" id="feed-empty">No events yet. Run a payment to see notifications arrive.</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    // --- Tab 4: Recurring (enrol card, display stored credential info) ---
-    function mountRecurringForm() {
-        if (mounted.recurring) return;
-        mounted.recurring = true;
-        const form = GlobalPayments.creditCard.form('#credit-card-recurring', {
-            style: 'gp-default'
-        });
-        form.on('token-success', (resp) => {
-            const amount = document.getElementById('rec-amount').value;
-            const cycle  = document.getElementById('rec-cycle').value;
-            document.getElementById('rec-display').textContent = JSON.stringify({
-                paymentReference: resp.paymentReference,
-                amount,
-                billingCycle: cycle,
-                nextStep: 'POST paymentReference to /process-payment with ' +
-                          'storedCredential.initiator=Merchant for subsequent charges'
-            }, null, 2);
-            document.getElementById('rec-result').classList.remove('gp-hidden');
-            document.getElementById('rec-error').classList.add('gp-hidden');
-        });
-        form.on('token-error', (resp) => {
-            const el = document.getElementById('rec-error');
-            el.textContent = (resp.error && resp.error.message) || 'Tokenization failed.';
-            el.classList.remove('gp-hidden');
-        });
-    }
+</main>
 
-    // --- Tab 3: Webhook event log ---
-    async function loadWebhookEvents() {
-        try {
-            const resp   = await fetch('/webhook-events');
-            const events = await resp.json();
-            const log    = document.getElementById('webhook-log');
+<!-- ============================================================ FOOTER -->
+<footer class="gp-footer">
+  <div class="gp-container gp-footer-inner">
+    <p class="gp-footer-copy">© 2026 Your Company Name · Built on Global Payments Hosted Payment Page</p>
+    <nav class="gp-footer-nav" aria-label="Legal">
+      <a href="/terms-of-service">Terms of Service</a>
+      <a href="/privacy-policy">Privacy Policy</a>
+      <a href="/refund-policy">Refund Policy</a>
+    </nav>
+  </div>
+</footer>
 
-            if (!Array.isArray(events) || !events.length) {
-                log.innerHTML = '<em>No events yet. Complete a payment to see webhook notifications here.</em>';
-                return;
-            }
-            log.innerHTML = events.map(e => `
-                <div class="gp-webhook-event">
-                    <strong>${e.type || 'EVENT'}</strong> &nbsp;·&nbsp; ${e.receivedAt || ''}
-                    <br><small>${JSON.stringify(e).substring(0, 240)}…</small>
-                </div>`).join('');
-        } catch { /* silent — webhook endpoint may not be reachable in dev */ }
-    }
+<script>
+// =============================================================
+//  Global Payments — Hosted Payment Page lifecycle
+//
+//  Flow:
+//  1. Configure the transaction (amount, display method, value adds)
+//  2. POST /create-hpp-link → backend creates a HOSTED_PAYMENT_PAGE link
+//     via the GP API Links API and returns { id, url, reference }
+//  3. Render the hosted url in an iframe, or redirect the whole page to it
+//  4. The customer pays on the GP-hosted page (card + 3-D Secure)
+//  5. Frontend polls GET /payment-status?reference=… for the outcome
+//  6. UI transitions through the Configure → Hosted page → Result stepper
+// =============================================================
+(function () {
+  'use strict';
 
-    document.getElementById('refresh-webhooks')
-        .addEventListener('click', loadWebhookEvents);
+  // Escape any value before it goes into innerHTML. Server/gateway/webhook data
+  // (transactionId, status, card brand, webhook type/id) is untrusted — the
+  // /webhook endpoint in particular accepts unauthenticated JSON — so escaping
+  // here prevents HTML/script injection in the receipt and the live feed.
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
-    // --- Tab switching ---
-    document.querySelectorAll('.gp-tab-button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.gp-tab-button')
-                .forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.gp-tab-content')
-                .forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(btn.dataset.tab).classList.add('active');
+  /* ---------- Tab navigation (ARIA tablist + keyboard) ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.gp-tab-button'));
+  var panels = {
+    'hpp':      document.getElementById('panel-hpp'),
+    'webhooks': document.getElementById('panel-webhooks')
+  };
 
-            // Lazy-mount Drop-In UI only when the tab first becomes visible
-            if (btn.dataset.tab === 'tokenization') mountTokenForm();
-            if (btn.dataset.tab === 'recurring')    mountRecurringForm();
-            if (btn.dataset.tab === 'webhooks')     loadWebhookEvents();
-        });
+  function selectTab(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.classList.toggle('is-active', on);
+      t.tabIndex = on ? 0 : -1;
+      panels[t.dataset.tab].hidden = !on;
     });
+    var panel = panels[tab.dataset.tab];
+    panel.classList.remove('is-entering');
+    void panel.offsetWidth; // restart animation
+    panel.classList.add('is-entering');
+    panel.addEventListener('animationend', function handler() {
+      panel.classList.remove('is-entering');
+      panel.removeEventListener('animationend', handler);
+    });
+    if (focus) tab.focus();
+    if (tab.dataset.tab === 'webhooks') loadWebhookEvents();
+    history.replaceState(null, '', '#' + tab.dataset.tab);
+  }
 
-    // Boot
-    initDropInUI();
-    </script>
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { selectTab(tab, false); });
+    tab.addEventListener('keydown', function (e) {
+      var idx = null;
+      if (e.key === 'ArrowRight') idx = (i + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') idx = (i - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') idx = 0;
+      else if (e.key === 'End') idx = tabs.length - 1;
+      if (idx !== null) { e.preventDefault(); selectTab(tabs[idx], true); }
+    });
+  });
+
+  /* ---------- Copy buttons ---------- */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.gp-copy');
+    if (!btn) return;
+    var src = document.getElementById(btn.dataset.copy);
+    if (!src) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(src.innerText);
+    var prev = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(function () { btn.textContent = prev; btn.classList.remove('copied'); }, 1600);
+  });
+
+  /* ============================================================
+     Configuration helpers
+     ============================================================ */
+  var amountInput = document.getElementById('cfg-amount');
+  var currencySel = document.getElementById('cfg-currency');
+  var totalEl     = document.getElementById('cfg-total');
+  var storageTgl  = document.getElementById('cfg-cardstorage');
+  var storageWrap = document.getElementById('cfg-cardstorage-user-wrap');
+
+  var CURRENCY_SYMBOL = { USD: '$', EUR: '€', GBP: '£', CAD: 'CA$' };
+
+  function refreshTotal() {
+    var amt = parseFloat(amountInput.value || '0');
+    var sym = CURRENCY_SYMBOL[currencySel.value] || '$';
+    totalEl.textContent = sym + (isFinite(amt) ? amt.toFixed(2) : '0.00');
+  }
+  amountInput.addEventListener('input', refreshTotal);
+  currencySel.addEventListener('change', refreshTotal);
+  storageTgl.addEventListener('change', function () { storageWrap.hidden = !storageTgl.checked; });
+  refreshTotal();
+
+  function displayMethod() {
+    var r = document.querySelector('input[name="display"]:checked');
+    return r ? r.value : 'iframe';
+  }
+
+  function readConfig() {
+    return {
+      amount:   amountInput.value,
+      currency: currencySel.value,
+      displayMethod: displayMethod(),
+      config: {
+        threeds:         document.getElementById('cfg-threeds').checked,
+        cardStorage:     storageTgl.checked,
+        cardStorageUser: document.getElementById('cfg-cardstorage-user').value,
+        dcc:             document.getElementById('cfg-dcc').checked,
+        digitalWallets:  document.getElementById('cfg-wallets').checked,
+        apm:             document.getElementById('cfg-apm').checked
+      }
+    };
+  }
+
+  /* ============================================================
+     Payment state machine + lifecycle stepper
+     ============================================================ */
+  var STATES   = ['config', 'hosted', 'processing', 'success', 'decline'];
+  var STEP_FOR = { config: 'configure', processing: 'configure', hosted: 'pay', success: 'result', decline: 'result' };
+
+  function showState(name) {
+    STATES.forEach(function (s) {
+      document.getElementById('state-' + s).hidden = (s !== name);
+    });
+    setStepper(STEP_FOR[name] || 'configure');
+  }
+
+  function setStepper(stage) {
+    var order = ['configure', 'pay', 'result'];
+    var idx = order.indexOf(stage);
+    Array.prototype.forEach.call(document.querySelectorAll('#pay-steps .gp-step'), function (el) {
+      var pos = order.indexOf(el.dataset.step);
+      el.dataset.state = pos < idx ? 'done' : (pos === idx ? 'active' : '');
+    });
+  }
+
+  var payError = document.getElementById('pay-error');
+  function showPayError(msg) {
+    payError.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>' + escapeHtml(msg) + '</span>';
+    payError.hidden = false;
+  }
+
+  /* ---------- Receipt rendering ---------- */
+  function formatCard(cd) {
+    if (!cd) return null;
+    var brand = (cd.brand || '').toString().toUpperCase();
+    var last4 = String(cd.maskedNumber || '').replace(/\D/g, '').slice(-4);
+    var masked = last4 ? '•••• ' + last4 : '';
+    var out = (brand + ' ' + masked).trim();
+    return out || null;
+  }
+
+  function renderReceipt(data) {
+    var rows = [['Status', data.status || '—'], ['Transaction ID', data.transactionId || '—']];
+    if (typeof data.amount === 'number') {
+      var sym = CURRENCY_SYMBOL[data.currency] || '$';
+      rows.push(['Amount', sym + data.amount.toFixed(2) + (data.currency ? ' ' + data.currency : '')]);
+    }
+    var card = formatCard(data.cardDetails);
+    if (card) rows.push(['Card', card]);
+    document.getElementById('success-receipt').innerHTML = rows.map(function (r) {
+      return '<div class="gp-receipt-row"><span class="k">' + escapeHtml(r[0]) + '</span><span class="v">' + escapeHtml(r[1]) + '</span></div>';
+    }).join('');
+  }
+
+  /* ---------- Status polling ---------- */
+  var pollTimer = null;
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+  function pollStatus(reference, onDone) {
+    stopPolling();
+    var attempts = 0;
+    pollTimer = setInterval(function () {
+      attempts++;
+      fetch('/payment-status?reference=' + encodeURIComponent(reference))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || data.outcome === 'pending') {
+            if (attempts > 150) stopPolling(); // ~5 min safety cap
+            return;
+          }
+          stopPolling();
+          if (data.outcome === 'success') {
+            renderReceipt(data);
+            showState('success');
+          } else {
+            if (data.status) {
+              document.getElementById('decline-message').textContent =
+                'The payment did not complete (status ' + data.status + '). No charge was made.';
+            }
+            showState('decline');
+          }
+          if (typeof onDone === 'function') onDone(data);
+        })
+        .catch(function () { /* keep polling */ });
+    }, 2000);
+  }
+
+  /* ---------- Proceed ---------- */
+  var hostedFrame = document.getElementById('hosted-frame');
+
+  function proceed() {
+    payError.hidden = true;
+    document.getElementById('processing-title').textContent = 'Opening hosted page…';
+    showState('processing');
+    var cfg = readConfig();
+
+    fetch('/create-hpp-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.body.success) {
+          throw new Error(res.body.error || 'Could not create the hosted payment link.');
+        }
+        var link = res.body;
+        if (cfg.displayMethod === 'redirect') {
+          // Full-page redirect; GP returns to ?reference=… where we read the result.
+          window.location.assign(link.url);
+          return;
+        }
+        // Iframe mode: render the hosted page and poll for the outcome.
+        hostedFrame.src = link.url;
+        showState('hosted');
+        pollStatus(link.reference);
+      })
+      .catch(function (err) {
+        showState('config');
+        showPayError(err.message);
+      });
+  }
+
+  document.getElementById('proceed-btn').addEventListener('click', proceed);
+  function reset() {
+    stopPolling();
+    hostedFrame.src = 'about:blank';
+    payError.hidden = true;
+    showState('config');
+  }
+  document.getElementById('restart-btn').addEventListener('click', reset);
+  document.getElementById('retry-btn').addEventListener('click', reset);
+
+  /* ---------- Redirect return handling ---------- */
+  (function handleReturn() {
+    var params = new URLSearchParams(window.location.search);
+    var reference = params.get('reference');
+    if (!reference) return;
+    // We came back from a redirect-mode hosted payment. Resolve the outcome.
+    document.getElementById('processing-title').textContent = 'Confirming payment…';
+    showState('processing');
+    pollStatus(reference, function () {
+      history.replaceState(null, '', window.location.pathname + window.location.hash);
+    });
+  })();
+
+  /* ============================================================
+     Webhook live feed (reads /webhook-events from the backend)
+     ============================================================ */
+  function timeAgo(value) {
+    var d = value ? new Date(value) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    var s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    return d.toLocaleTimeString();
+  }
+
+  function renderFeed(events) {
+    var feed  = document.getElementById('webhook-feed');
+    var empty = document.getElementById('feed-empty');
+    var count = document.getElementById('wh-count');
+    if (!feed) return;
+    var list = Array.isArray(events) ? events : [];
+    count.textContent = list.length + (list.length === 1 ? ' event' : ' events');
+    if (!list.length) {
+      feed.innerHTML = '';
+      feed.appendChild(empty);
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    feed.innerHTML = list.map(function (e) {
+      return '<div class="gp-event">' +
+        '<div><div class="gp-event-type">' + escapeHtml(e.type || 'EVENT') + '</div>' +
+        '<div class="gp-event-id">' + escapeHtml(e.id || '') + '</div></div>' +
+        '<span class="gp-event-time">' + escapeHtml(timeAgo(e.receivedAt)) + '</span></div>';
+    }).join('');
+  }
+
+  function loadWebhookEvents() {
+    fetch('/webhook-events')
+      .then(function (r) { return r.json(); })
+      .then(renderFeed)
+      .catch(function () { /* silent — webhook endpoint may not be reachable in dev */ });
+  }
+  document.getElementById('refresh-webhooks').addEventListener('click', loadWebhookEvents);
+
+  /* ---------- Boot ---------- */
+  showState(new URLSearchParams(window.location.search).get('reference') ? 'processing' : 'config');
+
+  // Deep-link support (#webhooks etc.)
+  var initial = (location.hash || '').replace('#', '');
+  var initialTab = tabs.filter(function (t) { return t.dataset.tab === initial; })[0];
+  if (initialTab) selectTab(initialTab, false);
+})();
+</script>
 </body>
 </html>
