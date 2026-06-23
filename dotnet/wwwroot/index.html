@@ -751,7 +751,7 @@ a { color: var(--text-link); }
         <div id="state-processing" class="gp-result" hidden aria-live="polite">
           <div class="gp-spinner"></div>
           <h3 id="processing-title">Opening hosted page…</h3>
-          <p>Creating the secure payment link. Please don't close this window.</p>
+          <p id="processing-sub">Creating the secure payment link. Please don't close this window.</p>
         </div>
 
         <!-- State D: success -->
@@ -1090,8 +1090,27 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
         }
         var link = res.body;
         if (cfg.displayMethod === 'redirect') {
-          // Full-page redirect; GP returns to ?reference=… where we read the result.
-          window.location.assign(link.url);
+          // The GP API HOSTED_PAYMENT_PAGE link does not redirect the browser back
+          // to return_url, so a full same-tab navigation would strand the customer
+          // on the GP-hosted result page. Instead, open the full hosted page in a
+          // separate tab and keep this page alive to poll the outcome — the same
+          // status source the iframe flow uses.
+          var hostedWin = window.open(link.url, 'gp_hosted_payment');
+          if (!hostedWin) {
+            // Popups blocked: fall back to the embedded iframe (which also polls)
+            // rather than a full-page navigation that would strand the customer on
+            // GP's result page.
+            hostedFrame.src = link.url;
+            showState('hosted');
+            pollStatus(link.reference);
+            return;
+          }
+          document.getElementById('processing-title').textContent = 'Complete payment in the new tab…';
+          document.getElementById('processing-sub').textContent =
+            'A Global Payments tab opened for secure card entry. This page updates automatically once the payment completes.';
+          showState('processing');
+          setStepper('pay');
+          pollStatus(link.reference, function () { try { hostedWin.close(); } catch (e) {} });
           return;
         }
         // Iframe mode: render the hosted page and poll for the outcome.

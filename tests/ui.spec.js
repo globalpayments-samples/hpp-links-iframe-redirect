@@ -33,6 +33,36 @@ test.describe('Hosted Payment Page', () => {
       .toBeVisible({ timeout: 30_000 });
   });
 
+  // Redirect-mode regression guard. The GP API HOSTED_PAYMENT_PAGE link does not
+  // redirect the browser back to return_url, so "redirect" must NOT navigate the
+  // whole tab away (which strands the customer on GP's blank result page). It must
+  // open the hosted page in a separate tab and keep the merchant page alive to poll
+  // the outcome — exactly the behaviour that was broken before.
+  test('Redirect mode opens the hosted page in a new tab and keeps polling', async ({ page, context }) => {
+    await page.goto('/');
+    await page.check('input[name="display"][value="redirect"]', { force: true });
+
+    // Proceed opens the GP-hosted page in a new tab instead of navigating away.
+    const [popup] = await Promise.all([
+      context.waitForEvent('page', { timeout: 30_000 }),
+      page.click('#proceed-btn'),
+    ]);
+    await popup.waitForLoadState('domcontentloaded').catch(() => {});
+    expect(popup.url()).toMatch(/realexpayments\.com|\/hpp\/redirect/);
+
+    // The merchant tab stayed on the sample (did not redirect to GP) and shows the
+    // waiting state, ready to poll /payment-status for the result.
+    expect(page.url()).not.toContain('realexpayments');
+    await expect(page.locator('#state-processing')).toBeVisible();
+    await expect(page.locator('#processing-title')).toContainText(/Complete payment/i);
+
+    // The hosted page really rendered the card form in the popup.
+    await expect(popup.locator('#pas_ccnum, input[name="cardNumber"]').first())
+      .toBeVisible({ timeout: 30_000 });
+
+    await popup.close();
+  });
+
   // Full end-to-end payment against the live GP sandbox. This is the real proof
   // that the backend can create a chargeable hosted link, render the GP-hosted
   // page, and faithfully report the outcome read back from GET /payment-status —

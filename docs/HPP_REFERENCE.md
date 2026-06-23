@@ -22,7 +22,7 @@ Browser                         Merchant server                     GP API
   |                                 |-- POST /ucp/links -------------->|  type=HOSTED_PAYMENT_PAGE
   |<-- {id:LNK_…, url, reference} --|<-- {id, url:…/hpp/redirect/guid}-|
   |                                 |                                  |
-  | iframe.src = url  (or window.location = url for redirect)         |
+  | iframe.src = url  (or window.open(url) in a new tab for redirect) |
   |        └─ 302 → pay.sandbox.realexpayments.com/hosted-payments/blue/card.html?guid=…
   |           (GP-hosted: card entry + 3-D Secure 2 + wallets/DCC/APMs)
   |                                 |                                  |
@@ -34,8 +34,12 @@ Browser                         Merchant server                     GP API
 - **Drop-In UI (old) vs HPP (now):** Drop-In embedded tokenizing card iframes on the
   merchant page and the backend charged a `paymentReference`. HPP puts the **entire**
   payment UI on a GP-hosted page; the merchant only creates a link and reads the result.
-- **Display method:** `iframe` embeds `url` in an `<iframe>`; `redirect` navigates the
-  whole page to `url`. Both 302 to the same Realex "blue" hosted page.
+- **Display method:** `iframe` embeds `url` in an `<iframe>`; `redirect` opens `url` in a
+  **separate browser tab** (`window.open`). Both 302 to the same Realex "blue" hosted page,
+  and in **both** modes the merchant page stays alive and polls `/payment-status`. A
+  HOSTED_PAYMENT_PAGE link does **not** redirect the browser back to `return_url` (verified
+  live — see §5), so a full same-tab `window.location` navigation would strand the customer
+  on GP's blank result page; the new-tab approach keeps a context that can poll the outcome.
 - **No SDKs:** all five backends call the REST API directly. The `HOSTED_PAYMENT_PAGE`
   link type isn't uniformly exposed by the SDKs, and the SDKs caused routing gotchas.
 
@@ -154,9 +158,21 @@ and their visible effect depends on **account provisioning**. Unknown fields are
 
 ## 5. Step 3 — Render the hosted page
 
-Load `url` in an iframe (`displayMethod=iframe`) or `window.location.assign(url)`
-(`redirect`). It 302s to the Realex "blue" hosted page:
+Load `url` in an iframe (`displayMethod=iframe`) or open it in a new tab with
+`window.open(url)` (`redirect`). It 302s to the Realex "blue" hosted page:
 `https://pay.sandbox.realexpayments.com/hosted-payments/blue/card.html?guid=<guid>`.
+
+⚠️ **A HOSTED_PAYMENT_PAGE link does not redirect the browser back to `return_url`.**
+Verified live by driving the full card + 3-D Secure flow: after payment the hosted page
+lands on `…/blue/result.html?guid=…` and **stops there** — the result page renders with an
+empty `data-auth-result` and performs no navigation (identical behaviour whether
+`return_url` is `http://localhost` or a valid public `https://` origin, so it is not a
+URL-validity issue). The redirect-back appears to depend on account-level merchant-response
+provisioning that this shared sandbox app does not carry. Consequently **`redirect` mode
+must not do a full same-tab `window.location` navigation** (it would strand the customer on
+that blank result page). The sample opens the hosted page in a separate tab and keeps the
+merchant page polling `/payment-status` — the same outcome source the iframe flow uses.
+`return_url` / `status_url` are still sent (harmless; `status_url` still drives webhooks).
 
 **Hosted-page selectors** (for browser automation):
 
