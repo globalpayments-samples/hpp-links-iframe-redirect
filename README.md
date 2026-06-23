@@ -87,6 +87,12 @@ CVV         : any 3 digits
 
 3-D Secure 2 runs automatically and a successful sale settles as `PREAUTHORIZED`.
 
+The sample is verified against the **full official Global Payments test-card suite** with an
+automated harness — run `npm run verify:cards:repr` (smoke) or `npm run verify:cards` (full
+matrix) against a running framework. See [`docs/TEST_CARDS.md`](docs/TEST_CARDS.md) for the
+catalog, the expectation model, and the (important) note on why sandbox approvals are
+non-deterministic.
+
 ## Docker
 
 Run all five frameworks simultaneously:
