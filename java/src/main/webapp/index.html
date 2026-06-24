@@ -1150,7 +1150,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
 
   /* ---------- Status polling ---------- */
   var pollTimer = null;
-  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function stopPolling() { if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; } }
 
   // Polls until a terminal outcome, then hands the result to onResult — the caller
   // decides how to render it (in-page panel for iframe mode, full-bleed overlay for
@@ -1159,20 +1159,34 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   function pollStatus(reference, onResult) {
     stopPolling();
     var attempts = 0;
-    pollTimer = setInterval(function () {
+    var elapsed  = 0;
+    var MAX_MS   = 5 * 60 * 1000; // ~5 min safety cap
+    function finish(data) {
+      stopPolling();
+      if (typeof onResult === 'function') onResult(data);
+    }
+    function schedule() {
+      if (elapsed >= MAX_MS) {
+        // Don't strand the customer on a non-terminal screen — hand back a clear
+        // "still processing" outcome instead of polling silently forever.
+        finish({ outcome: 'pending', timedOut: true });
+        return;
+      }
+      var delay = Math.min(5000, 2000 + attempts * 250); // 2s, ramping to 5s — eases load on the shared sandbox
+      elapsed += delay;
+      pollTimer = setTimeout(tick, delay);
+    }
+    function tick() {
       attempts++;
       fetch('/payment-status?reference=' + encodeURIComponent(reference))
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (!data || data.outcome === 'pending') {
-            if (attempts > 150) stopPolling(); // ~5 min safety cap
-            return;
-          }
-          stopPolling();
-          if (typeof onResult === 'function') onResult(data);
+          if (data && data.outcome !== 'pending') { finish(data); return; }
+          schedule();
         })
-        .catch(function () { /* keep polling */ });
-    }, 2000);
+        .catch(function () { schedule(); }); // transient error — keep polling
+    }
+    schedule();
   }
 
   // Render a terminal outcome into the in-page result panel (iframe + return modes).
@@ -1181,10 +1195,10 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
       renderReceipt(data);
       showState('success');
     } else {
-      if (data.status) {
-        document.getElementById('decline-message').textContent =
-          'The payment did not complete (status ' + data.status + '). No charge was made.';
-      }
+      var msg = data.timedOut
+        ? 'The payment is taking longer than expected and is still being processed. No charge has been confirmed — if you completed payment, a webhook notification will follow.'
+        : (data.status ? 'The payment did not complete (status ' + data.status + '). No charge was made.' : null);
+      if (msg) document.getElementById('decline-message').textContent = msg;
       showState('decline');
     }
   }
@@ -1298,8 +1312,10 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
         '<h3>' + (ok ? 'Payment successful' : 'Payment not completed') + '</h3>' +
         '<p>' + (ok
           ? 'The hosted payment completed. If you’ve registered a webhook endpoint, a notification will be sent to it.'
-          : escapeHtml(data.status ? 'The payment did not complete (status ' + data.status + '). No charge was made.'
-                                   : 'The payment was declined or cancelled. No charge was made.')) + '</p>' +
+          : escapeHtml(data.timedOut
+              ? 'The payment is taking longer than expected and is still being processed. No charge has been confirmed — if you completed payment, a webhook notification will follow.'
+              : (data.status ? 'The payment did not complete (status ' + data.status + '). No charge was made.'
+                             : 'The payment was declined or cancelled. No charge was made.'))) + '</p>' +
         rows +
         '<div class="gp-result-actions"><button class="gp-btn gp-btn-primary" id="fb-done" type="button">New transaction</button></div>' +
       '</div>';
@@ -1363,12 +1379,15 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
 
   // Pretty-print JSON with light token highlighting; all values are HTML-escaped.
   function highlightJson(value) {
-    var json = escapeHtml(JSON.stringify(value, null, 2));
+    // Tokenise the raw JSON, then HTML-escape each token inside the replacer. Escaping
+    // up front would turn every " into &quot; and break the quote-based tokeniser, so
+    // strings/keys would never highlight and digits inside strings would mis-colour.
+    var json = JSON.stringify(value, null, 2);
     return json.replace(/("(\\.|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, function (m) {
       var cls = 'tok-num';
       if (/^"/.test(m)) cls = /:$/.test(m) ? 'tok-key' : 'tok-str';
       else if (/true|false|null/.test(m)) cls = 'tok-key';
-      return '<span class="' + cls + '">' + m + '</span>';
+      return '<span class="' + cls + '">' + escapeHtml(m) + '</span>';
     });
   }
 
