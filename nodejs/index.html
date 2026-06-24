@@ -553,6 +553,71 @@ a { color: var(--text-link); }
 .gp-badge-success { background: var(--success-surface); color: var(--success-ink); }
 .gp-badge-info { background: var(--info-surface); color: var(--info-ink); }
 
+/* ---------- APM checklist ---------- */
+.gp-apm-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0 0 var(--gp-space-md); }
+.gp-apm-list[hidden] { display: none; }
+.gp-apm-opt { display: flex; align-items: center; gap: 9px; font: var(--type-body-sm); color: var(--text-body); cursor: pointer; }
+.gp-apm-opt input { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; flex-shrink: 0; }
+.gp-apm-opt code { font: var(--type-code); font-size: var(--text-2xs); color: var(--text-muted); }
+
+/* ---------- API Explorer timeline ---------- */
+.gp-explorer { display: flex; flex-direction: column; gap: 8px; }
+.gp-explorer-empty {
+  text-align: center; padding: var(--gp-space-xl); color: var(--text-muted); font: var(--type-body-sm);
+  border: 1px dashed var(--border-default); border-radius: var(--radius-md);
+}
+.gp-explorer-empty[hidden] { display: none; }
+.gp-xcall { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--gp-white); }
+.gp-xcall > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px; font: var(--type-label); font-size: var(--text-sm); color: var(--text-strong);
+}
+.gp-xcall > summary::-webkit-details-marker { display: none; }
+.gp-xcall > summary::before {
+  content: "▸"; color: var(--text-muted); font-size: var(--text-xs); transition: transform var(--duration-base);
+}
+.gp-xcall[open] > summary::before { transform: rotate(90deg); }
+.gp-xtag {
+  font: var(--type-code); font-size: var(--text-2xs); letter-spacing: var(--tracking-wide);
+  text-transform: uppercase; padding: 3px 8px; border-radius: var(--radius-pill); font-weight: var(--weight-semibold);
+}
+.gp-xtag.req { background: var(--info-surface); color: var(--info-ink); }
+.gp-xtag.res { background: var(--success-surface); color: var(--success-ink); }
+.gp-xtag.hook { background: var(--warning-surface); color: var(--warning-ink); }
+.gp-xtag.err { background: var(--error-surface); color: var(--error-ink); }
+.gp-xcall .gp-xmeta { margin-left: auto; font: var(--type-body-sm); font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap; }
+.gp-xcall pre {
+  margin: 0; background: var(--gp-black); color: #e8e8e8; font: var(--type-code); font-size: var(--text-xs);
+  padding: var(--gp-space-md); overflow-x: auto; line-height: 1.55; border-top: 1px solid var(--border-subtle); max-height: 360px;
+}
+.gp-xcall pre .tok-str { color: #9ece6a; } .gp-xcall pre .tok-key { color: #7aa2f7; }
+.gp-xcall pre .tok-num { color: #ff9e64; } .gp-xcall pre .tok-com { color: #7b8aa0; }
+
+/* ---------- Full-bleed hosted checkout (redirect mode) ---------- */
+.gp-fullbleed {
+  position: fixed; inset: 0; z-index: 1000; background: var(--gp-mist);
+  display: flex; flex-direction: column;
+}
+.gp-fullbleed[hidden] { display: none; }
+.gp-fullbleed-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--gp-space-md);
+  padding: 0 var(--gp-space-lg); height: 56px; background: var(--surface-inverse); color: #fff; flex-shrink: 0;
+}
+.gp-fullbleed-bar .gp-fb-title { display: inline-flex; align-items: center; gap: 9px; font: var(--type-label); font-size: var(--text-sm); }
+.gp-fullbleed-bar .gp-fb-title svg { color: var(--gp-success); }
+.gp-fb-close {
+  appearance: none; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+  font: var(--type-label); font-size: var(--text-xs); padding: 7px 14px; border-radius: var(--radius-pill); cursor: pointer;
+}
+.gp-fb-close:hover { background: rgba(255,255,255,0.22); }
+.gp-fullbleed-body { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+.gp-fullbleed-body .gp-fb-frame-wrap {
+  width: 100%; max-width: 640px; margin: var(--gp-space-lg) auto; padding: 0 var(--gp-space-md); flex: 1 1 auto;
+}
+.gp-fb-frame { width: 100%; min-height: 540px; border: 0; display: block; background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.gp-fb-result { width: 100%; max-width: 520px; margin: auto; padding: var(--gp-space-xxl) var(--gp-space-lg); }
+.gp-fb-result[hidden] { display: none; }
+
 /* ---------- Footer ---------- */
 .gp-footer { background: var(--surface-inverse); color: rgba(255,255,255,0.7); margin-top: var(--gp-space-xxl); }
 .gp-footer-inner {
@@ -605,10 +670,10 @@ a { color: var(--text-link); }
         <span class="gp-tab-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2" y="4.5" width="16" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16" stroke="currentColor" stroke-width="1.5"/></svg></span>
         Hosted Payment Page
       </button>
-      <button class="gp-tab gp-tab-button" role="tab" id="tab-webhooks" aria-controls="panel-webhooks" aria-selected="false" tabindex="-1" data-tab="webhooks">
+      <button class="gp-tab gp-tab-button" role="tab" id="tab-explorer" aria-controls="panel-explorer" aria-selected="false" tabindex="-1" data-tab="explorer">
         <span class="gp-tab-num">2</span>
-        <span class="gp-tab-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M7 7.5a3 3 0 1 1 4.2 2.7L9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="15" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="12" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M9 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
-        Webhooks
+        <span class="gp-tab-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M7 4 3 8l4 4M13 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        API Explorer
       </button>
     </div>
   </div>
@@ -688,9 +753,16 @@ a { color: var(--text-link); }
               <span class="gp-switch"><input type="checkbox" id="cfg-wallets"><span class="gp-switch-track"></span></span>
             </label>
             <label class="gp-toggle">
-              <span class="gp-toggle-text"><span class="gp-toggle-name">Alternative payment methods</span><span class="gp-toggle-sub">PayPal and other APMs (account-provisioned)</span></span>
+              <span class="gp-toggle-text"><span class="gp-toggle-name">Alternative payment methods</span><span class="gp-toggle-sub">Add APM method strings to the request (account-provisioned)</span></span>
               <span class="gp-switch"><input type="checkbox" id="cfg-apm"><span class="gp-switch-track"></span></span>
             </label>
+            <div class="gp-apm-list" id="cfg-apm-list" hidden>
+              <label class="gp-apm-opt"><input type="checkbox" class="cfg-apm-opt" value="testpay" checked> <code>testpay</code></label>
+              <label class="gp-apm-opt"><input type="checkbox" class="cfg-apm-opt" value="paybybankapp"> <code>paybybankapp</code></label>
+              <label class="gp-apm-opt"><input type="checkbox" class="cfg-apm-opt" value="paysafecard"> <code>paysafecard</code></label>
+              <label class="gp-apm-opt"><input type="checkbox" class="cfg-apm-opt" value="sepapm"> <code>sepapm</code></label>
+              <label class="gp-apm-opt"><input type="checkbox" class="cfg-apm-opt" value="bitpay"> <code>bitpay</code></label>
+            </div>
           </div>
         </div>
 
@@ -783,32 +855,69 @@ a { color: var(--text-link); }
     </div>
   </section>
 
-  <!-- ======================================================= PANEL 2: WEBHOOKS -->
-  <section class="gp-panel" role="tabpanel" id="panel-webhooks" aria-labelledby="tab-webhooks" hidden>
+  <!-- ======================================================= PANEL 2: API EXPLORER -->
+  <section class="gp-panel" role="tabpanel" id="panel-explorer" aria-labelledby="tab-explorer" hidden>
     <div class="gp-ctx">
       <div>
-        <h2>Webhook notifications</h2>
-        <p>The link's <code>notifications.status_url</code> receives real-time GP API events as the hosted payment progresses. Verify every signature before processing.</p>
+        <h2>API Explorer</h2>
+        <p>The exact GP API calls this sample makes during a transaction &mdash; <code>Create Access Token</code> then <code>Create a link</code> &mdash; alongside the webhook notifications GP sends back. Run a payment on the Hosted Payment Page tab to populate the timeline.</p>
       </div>
       <div class="gp-ctx-meta">
-        <span class="gp-chip"><span class="gp-method">POST</span> <b>/webhook</b></span>
-        <span class="gp-chip">header <b>X-GP-Signature</b></span>
+        <span class="gp-chip"><span class="gp-method">POST</span> <b>/ucp/accesstoken</b></span>
+        <span class="gp-chip"><span class="gp-method">POST</span> <b>/ucp/links</b></span>
       </div>
     </div>
 
     <div class="gp-checkout-grid">
+      <!-- Live API call timeline -->
       <div class="gp-card">
-        <div class="gp-card-head"><h3>Handler</h3></div>
-        <div class="gp-alert gp-alert-warning" style="margin-bottom: var(--gp-space-md);">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1 1 14h14L8 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v4M8 12h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <span>Always verify <code>X-GP-Signature</code> (HMAC-SHA256 with your webhook secret) before trusting any payload.</span>
+        <div class="gp-feed-head">
+          <h3><span class="gp-live-dot" aria-hidden="true"></span> Events</h3>
+          <span class="gp-badge gp-badge-info" id="x-count">0 calls</span>
         </div>
-        <div class="gp-code">
-          <div class="gp-code-bar">
-            <span class="gp-code-file"><span class="gp-lang">Node</span> webhook.js</span>
-            <button class="gp-copy" data-copy="wh-code" type="button">Copy</button>
+        <p style="font: var(--type-body-sm); color: var(--text-muted); margin: 0 0 var(--gp-space-md);">
+          Captured server-side as the link is created. The App Key is never sent in the clear and the bearer token is redacted.
+        </p>
+        <div class="gp-explorer" id="explorer-feed">
+          <div class="gp-explorer-empty" id="explorer-empty">No calls yet. Run a payment to see the <strong>Create Access Token</strong> and <strong>Create a link</strong> requests and responses.</div>
+        </div>
+      </div>
+
+      <!-- Live webhook feed -->
+      <div class="gp-card">
+        <div class="gp-feed-head">
+          <h3><span class="gp-live-dot" aria-hidden="true"></span> HPP Transaction webhooks</h3>
+          <div class="gp-feed-tools">
+            <span class="gp-badge gp-badge-info" id="wh-count">0 events</span>
+            <button class="gp-refresh" id="refresh-webhooks" type="button">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8a5 5 0 0 1 8.5-3.5L13 6M13 3v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8a5 5 0 0 1-8.5 3.5L3 10M3 13v-3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Refresh
+            </button>
           </div>
-          <pre id="wh-code"><span class="tok-com">// Production webhook handler</span>
+        </div>
+        <p style="font: var(--type-body-sm); color: var(--text-muted); margin: 0 0 var(--gp-space-md);">
+          GP delivers to the link's <code>status_url</code>, which must be publicly reachable — set <code>BASE_URL</code>
+          to a tunnel (e.g. ngrok) so it resolves to this <code>/webhook</code> and live events appear here.
+        </p>
+        <div class="gp-feed" id="webhook-feed">
+          <div class="gp-feed-empty" id="feed-empty">No events yet. Run a payment to see notifications arrive.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Production webhook handler reference -->
+    <div class="gp-card" style="margin-top: var(--gp-space-lg);">
+      <div class="gp-card-head"><h3>Production webhook handler</h3></div>
+      <div class="gp-alert gp-alert-warning" style="margin-bottom: var(--gp-space-md);">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1 1 14h14L8 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v4M8 12h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span>Always verify <code>X-GP-Signature</code> (HMAC-SHA256 with your webhook secret) before trusting any payload.</span>
+      </div>
+      <div class="gp-code">
+        <div class="gp-code-bar">
+          <span class="gp-code-file"><span class="gp-lang">Node</span> webhook.js</span>
+          <button class="gp-copy" data-copy="wh-code" type="button">Copy</button>
+        </div>
+        <pre id="wh-code"><span class="tok-com">// Production webhook handler</span>
 app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, express.<span class="tok-fn">raw</span>({ type: <span class="tok-str">'*/*'</span> }), (req, res) =&gt; {
   <span class="tok-key">const</span> signature = req.headers[<span class="tok-str">'x-gp-signature'</span>];
   <span class="tok-key">const</span> expected  = crypto
@@ -825,32 +934,28 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   }
   res.<span class="tok-fn">status</span>(<span class="tok-num">200</span>).<span class="tok-fn">send</span>(<span class="tok-str">'OK'</span>);
 });</pre>
-        </div>
-      </div>
-
-      <div class="gp-card">
-        <div class="gp-feed-head">
-          <h3><span class="gp-live-dot" aria-hidden="true"></span> Live event feed</h3>
-          <div class="gp-feed-tools">
-            <span class="gp-badge gp-badge-info" id="wh-count">0 events</span>
-            <button class="gp-refresh" id="refresh-webhooks" type="button">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8a5 5 0 0 1 8.5-3.5L13 6M13 3v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8a5 5 0 0 1-8.5 3.5L3 10M3 13v-3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Refresh
-            </button>
-          </div>
-        </div>
-        <p style="font: var(--type-body-sm); color: var(--text-muted); margin: 0 0 var(--gp-space-md);">
-          The GP sandbox can only deliver to a publicly reachable <code>status_url</code> — set <code>BASE_URL</code>
-          to a tunnel (e.g. ngrok) so the link's <code>status_url</code> resolves to this <code>/webhook</code> and live events appear here.
-        </p>
-        <div class="gp-feed" id="webhook-feed">
-          <div class="gp-feed-empty" id="feed-empty">No events yet. Run a payment to see notifications arrive.</div>
-        </div>
       </div>
     </div>
   </section>
 
 </main>
+
+<!-- ============================================================ FULL-BLEED HOSTED CHECKOUT (redirect mode) -->
+<div class="gp-fullbleed" id="fullbleed" hidden role="dialog" aria-modal="true" aria-label="Secure hosted checkout">
+  <div class="gp-fullbleed-bar">
+    <span class="gp-fb-title">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Secure checkout · Global Payments
+    </span>
+    <button class="gp-fb-close" id="fullbleed-close" type="button">Cancel</button>
+  </div>
+  <div class="gp-fullbleed-body">
+    <div class="gp-fb-frame-wrap" id="fullbleed-frame-wrap">
+      <iframe class="gp-fb-frame" id="fullbleed-frame" title="Global Payments Hosted Payment Page" allow="payment *"></iframe>
+    </div>
+    <div class="gp-fb-result" id="fullbleed-result" hidden aria-live="polite"></div>
+  </div>
+</div>
 
 <!-- ============================================================ FOOTER -->
 <footer class="gp-footer">
@@ -894,7 +999,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.gp-tab-button'));
   var panels = {
     'hpp':      document.getElementById('panel-hpp'),
-    'webhooks': document.getElementById('panel-webhooks')
+    'explorer': document.getElementById('panel-explorer')
   };
 
   function selectTab(tab, focus) {
@@ -914,7 +1019,7 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
       panel.removeEventListener('animationend', handler);
     });
     if (focus) tab.focus();
-    if (tab.dataset.tab === 'webhooks') loadWebhookEvents();
+    if (tab.dataset.tab === 'explorer') { loadWebhookEvents(); renderApiExplorer(); }
     history.replaceState(null, '', '#' + tab.dataset.tab);
   }
 
@@ -962,6 +1067,11 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   amountInput.addEventListener('input', refreshTotal);
   currencySel.addEventListener('change', refreshTotal);
   storageTgl.addEventListener('change', function () { storageWrap.hidden = !storageTgl.checked; });
+
+  // APM master toggle reveals the per-method checklist.
+  var apmTgl  = document.getElementById('cfg-apm');
+  var apmList = document.getElementById('cfg-apm-list');
+  apmTgl.addEventListener('change', function () { apmList.hidden = !apmTgl.checked; });
   refreshTotal();
 
   function displayMethod() {
@@ -980,7 +1090,9 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
         cardStorageUser: document.getElementById('cfg-cardstorage-user').value,
         dcc:             document.getElementById('cfg-dcc').checked,
         digitalWallets:  document.getElementById('cfg-wallets').checked,
-        apm:             document.getElementById('cfg-apm').checked
+        apms:            apmTgl.checked
+          ? Array.prototype.slice.call(document.querySelectorAll('.cfg-apm-opt:checked')).map(function (c) { return c.value; })
+          : []
       }
     };
   }
@@ -1040,7 +1152,11 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   var pollTimer = null;
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-  function pollStatus(reference, onDone) {
+  // Polls until a terminal outcome, then hands the result to onResult — the caller
+  // decides how to render it (in-page panel for iframe mode, full-bleed overlay for
+  // redirect mode). Both display modes poll because a HOSTED_PAYMENT_PAGE link never
+  // redirects the browser back with the outcome.
+  function pollStatus(reference, onResult) {
     stopPolling();
     var attempts = 0;
     pollTimer = setInterval(function () {
@@ -1053,28 +1169,36 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
             return;
           }
           stopPolling();
-          if (data.outcome === 'success') {
-            renderReceipt(data);
-            showState('success');
-          } else {
-            if (data.status) {
-              document.getElementById('decline-message').textContent =
-                'The payment did not complete (status ' + data.status + '). No charge was made.';
-            }
-            showState('decline');
-          }
-          if (typeof onDone === 'function') onDone(data);
+          if (typeof onResult === 'function') onResult(data);
         })
         .catch(function () { /* keep polling */ });
     }, 2000);
   }
 
+  // Render a terminal outcome into the in-page result panel (iframe + return modes).
+  function renderInPageResult(data) {
+    if (data.outcome === 'success') {
+      renderReceipt(data);
+      showState('success');
+    } else {
+      if (data.status) {
+        document.getElementById('decline-message').textContent =
+          'The payment did not complete (status ' + data.status + '). No charge was made.';
+      }
+      showState('decline');
+    }
+  }
+
   /* ---------- Proceed ---------- */
-  var hostedFrame = document.getElementById('hosted-frame');
+  var hostedFrame    = document.getElementById('hosted-frame');
+  var fullbleed      = document.getElementById('fullbleed');
+  var fullbleedFrame = document.getElementById('fullbleed-frame');
 
   function proceed() {
     payError.hidden = true;
     document.getElementById('processing-title').textContent = 'Opening hosted page…';
+    document.getElementById('processing-sub').textContent =
+      'Creating the secure payment link. Please don’t close this window.';
     showState('processing');
     var cfg = readConfig();
 
@@ -1085,38 +1209,27 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
+        // Surface the captured GP API calls in the API Explorer (present on both
+        // success and failure responses).
+        if (res.body && res.body.apiCalls) { latestApiCalls = res.body.apiCalls; renderApiExplorer(); }
         if (!res.ok || !res.body.success) {
           throw new Error(res.body.error || 'Could not create the hosted payment link.');
         }
         var link = res.body;
         if (cfg.displayMethod === 'redirect') {
-          // The GP API HOSTED_PAYMENT_PAGE link does not redirect the browser back
-          // to return_url, so a full same-tab navigation would strand the customer
-          // on the GP-hosted result page. Instead, open the full hosted page in a
-          // separate tab and keep this page alive to poll the outcome — the same
-          // status source the iframe flow uses.
-          var hostedWin = window.open(link.url, 'gp_hosted_payment');
-          if (!hostedWin) {
-            // Popups blocked: fall back to the embedded iframe (which also polls)
-            // rather than a full-page navigation that would strand the customer on
-            // GP's result page.
-            hostedFrame.src = link.url;
-            showState('hosted');
-            pollStatus(link.reference);
-            return;
-          }
-          document.getElementById('processing-title').textContent = 'Complete payment in the new tab…';
-          document.getElementById('processing-sub').textContent =
-            'A Global Payments tab opened for secure card entry. This page updates automatically once the payment completes.';
-          showState('processing');
-          setStepper('pay');
-          pollStatus(link.reference, function () { try { hostedWin.close(); } catch (e) {} });
+          // Full-page redirect: the merchant page goes full-bleed and loads the GP
+          // hosted page edge-to-edge, then shows the result on this same full-screen
+          // surface. (A real same-tab navigation can't be used: a HOSTED_PAYMENT_PAGE
+          // link never redirects the browser back with the outcome, and GP's own
+          // result page is blank unless the merchant account is provisioned for it.)
+          openFullbleed(link.url);
+          pollStatus(link.reference, renderFullbleedResult);
           return;
         }
-        // Iframe mode: render the hosted page and poll for the outcome.
+        // Iframe mode: render the hosted page inline and poll for the outcome.
         hostedFrame.src = link.url;
         showState('hosted');
-        pollStatus(link.reference);
+        pollStatus(link.reference, renderInPageResult);
       })
       .catch(function (err) {
         showState('config');
@@ -1128,24 +1241,164 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
   function reset() {
     stopPolling();
     hostedFrame.src = 'about:blank';
+    closeFullbleed();
     payError.hidden = true;
     showState('config');
   }
   document.getElementById('restart-btn').addEventListener('click', reset);
   document.getElementById('retry-btn').addEventListener('click', reset);
 
+  /* ---------- Full-bleed hosted checkout (redirect mode) ---------- */
+  var fbFrameWrap = document.getElementById('fullbleed-frame-wrap');
+  var fbResult    = document.getElementById('fullbleed-result');
+
+  function openFullbleed(url) {
+    fbResult.hidden = true;
+    fbResult.innerHTML = '';
+    fbFrameWrap.hidden = false;
+    fullbleedFrame.style.height = '';   // reset any prior auto-resize
+    fullbleedFrame.src = url;
+    fullbleed.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setStepper('pay');
+  }
+
+  function closeFullbleed() {
+    fullbleed.hidden = true;
+    fullbleedFrame.src = 'about:blank';
+    fbResult.hidden = true;
+    fbResult.innerHTML = '';
+    fbFrameWrap.hidden = false;
+    document.body.style.overflow = '';
+  }
+
+  // Render the terminal outcome full-screen on the same page the HPP loaded in.
+  function renderFullbleedResult(data) {
+    var ok = data.outcome === 'success';
+    var rows = '';
+    if (ok) {
+      var r = [['Status', data.status || '—'], ['Transaction ID', data.transactionId || '—']];
+      if (typeof data.amount === 'number') {
+        var sym = CURRENCY_SYMBOL[data.currency] || '$';
+        r.push(['Amount', sym + data.amount.toFixed(2) + (data.currency ? ' ' + data.currency : '')]);
+      }
+      var card = formatCard(data.cardDetails);
+      if (card) r.push(['Card', card]);
+      rows = '<div class="gp-receipt">' + r.map(function (x) {
+        return '<div class="gp-receipt-row"><span class="k">' + escapeHtml(x[0]) + '</span><span class="v">' + escapeHtml(x[1]) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    fbResult.innerHTML =
+      '<div class="gp-result" style="display:block">' +
+        '<div class="gp-result-badge ' + (ok ? 'success' : 'decline') + '">' +
+          (ok
+            ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 12 4 4 8-8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>') +
+        '</div>' +
+        '<h3>' + (ok ? 'Payment successful' : 'Payment not completed') + '</h3>' +
+        '<p>' + (ok
+          ? 'The hosted payment completed. If you’ve registered a webhook endpoint, a notification will be sent to it.'
+          : escapeHtml(data.status ? 'The payment did not complete (status ' + data.status + '). No charge was made.'
+                                   : 'The payment was declined or cancelled. No charge was made.')) + '</p>' +
+        rows +
+        '<div class="gp-result-actions"><button class="gp-btn gp-btn-primary" id="fb-done" type="button">New transaction</button></div>' +
+      '</div>';
+    fbFrameWrap.hidden = true;
+    fbResult.hidden = false;
+    setStepper('result');
+    var done = document.getElementById('fb-done');
+    if (done) done.addEventListener('click', reset);
+    // Mirror the outcome onto the in-page panel too, so closing the overlay lands
+    // on a consistent result rather than the configure screen.
+    renderInPageResult(data);
+  }
+
+  document.getElementById('fullbleed-close').addEventListener('click', reset);
+
+  /* ---------- Hosted-page iframe auto-resize ---------- */
+  // The GP/Realex hosted page posts its dimensions to the parent when the request
+  // enables it (HPP_POST_DIMENSIONS). The payload is base64-encoded JSON of the form
+  // { iframe: { width, height } }. Honour it so digital wallets / APMs that grow the
+  // page expand the iframe instead of forcing an inner scrollbar. (Account-provisioned:
+  // this shared sandbox does not post, so the iframe keeps its default height here.)
+  function isHostedOrigin(origin) {
+    return /(^|\.)realexpayments\.com$|(^|\.)globalpay\.com$|(^|\.)gpwebpay\.com$/i.test(
+      (origin || '').replace(/^https?:\/\//, '').split('/')[0]);
+  }
+  window.addEventListener('message', function (e) {
+    if (!isHostedOrigin(e.origin)) return;
+    var data = e.data;
+    try {
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); }
+        catch (_) { data = JSON.parse(decodeURIComponent(escape(atob(data)))); }
+      }
+    } catch (_) { return; }
+    if (!data || !data.iframe || !data.iframe.height) return;
+    var h = parseInt(String(data.iframe.height).replace('px', ''), 10);
+    if (!isFinite(h) || h < 200) return;
+    if (!fullbleed.hidden) fullbleedFrame.style.height = h + 'px';
+    else hostedFrame.style.height = h + 'px';
+  });
+
   /* ---------- Redirect return handling ---------- */
   (function handleReturn() {
     var params = new URLSearchParams(window.location.search);
     var reference = params.get('reference');
     if (!reference) return;
-    // We came back from a redirect-mode hosted payment. Resolve the outcome.
+    // A provisioned merchant account may still redirect the browser back to
+    // return_url. Resolve the outcome onto the in-page result panel if so.
     document.getElementById('processing-title').textContent = 'Confirming payment…';
     showState('processing');
-    pollStatus(reference, function () {
+    pollStatus(reference, function (data) {
+      renderInPageResult(data);
       history.replaceState(null, '', window.location.pathname + window.location.hash);
     });
   })();
+
+  /* ============================================================
+     API Explorer (renders the captured GP API call timeline)
+     ============================================================ */
+  var latestApiCalls = [];
+
+  // Pretty-print JSON with light token highlighting; all values are HTML-escaped.
+  function highlightJson(value) {
+    var json = escapeHtml(JSON.stringify(value, null, 2));
+    return json.replace(/("(\\.|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, function (m) {
+      var cls = 'tok-num';
+      if (/^"/.test(m)) cls = /:$/.test(m) ? 'tok-key' : 'tok-str';
+      else if (/true|false|null/.test(m)) cls = 'tok-key';
+      return '<span class="' + cls + '">' + m + '</span>';
+    });
+  }
+
+  var EXPLORER_EMPTY_HTML = '<div class="gp-explorer-empty" id="explorer-empty">No calls yet. Run a payment to see the <strong>Create Access Token</strong> and <strong>Create a link</strong> requests and responses.</div>';
+
+  function renderApiExplorer() {
+    var feed  = document.getElementById('explorer-feed');
+    var count = document.getElementById('x-count');
+    if (!feed) return;
+    var calls = Array.isArray(latestApiCalls) ? latestApiCalls : [];
+    if (count) count.textContent = calls.length + (calls.length === 1 ? ' call' : ' calls');
+    if (!calls.length) {
+      feed.innerHTML = EXPLORER_EMPTY_HTML;
+      return;
+    }
+    feed.innerHTML = calls.map(function (c, i) {
+      var isReq = c.dir === 'request';
+      var tag   = isReq ? 'req' : (c.status && c.status >= 400 ? 'err' : 'res');
+      var tagText = isReq ? 'Request' : 'Response';
+      var meta  = isReq
+        ? escapeHtml((c.method || '') + ' ' + (c.endpoint || ''))
+        : ('HTTP ' + escapeHtml(String(c.status || '')));
+      return '<details class="gp-xcall"' + (i < 2 ? ' open' : '') + '>' +
+        '<summary><span class="gp-xtag ' + tag + '">' + tagText + '</span>' +
+        escapeHtml(c.label || 'API call') +
+        '<span class="gp-xmeta">' + meta + '</span></summary>' +
+        '<pre>' + highlightJson(c.body) + '</pre>' +
+      '</details>';
+    }).join('');
+  }
 
   /* ============================================================
      Webhook live feed (reads /webhook-events from the backend)
@@ -1160,20 +1413,18 @@ app.<span class="tok-fn">post</span>(<span class="tok-str">'/webhook'</span>, ex
     return d.toLocaleTimeString();
   }
 
+  var FEED_EMPTY_HTML = '<div class="gp-feed-empty" id="feed-empty">No events yet. Run a payment to see notifications arrive.</div>';
+
   function renderFeed(events) {
     var feed  = document.getElementById('webhook-feed');
-    var empty = document.getElementById('feed-empty');
     var count = document.getElementById('wh-count');
     if (!feed) return;
     var list = Array.isArray(events) ? events : [];
-    count.textContent = list.length + (list.length === 1 ? ' event' : ' events');
+    if (count) count.textContent = list.length + (list.length === 1 ? ' event' : ' events');
     if (!list.length) {
-      feed.innerHTML = '';
-      feed.appendChild(empty);
-      empty.hidden = false;
+      feed.innerHTML = FEED_EMPTY_HTML;
       return;
     }
-    empty.hidden = true;
     feed.innerHTML = list.map(function (e) {
       return '<div class="gp-event">' +
         '<div><div class="gp-event-type">' + escapeHtml(e.type || 'EVENT') + '</div>' +

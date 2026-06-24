@@ -42,7 +42,7 @@ Browser                              Backend                        GP API
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/create-hpp-link` | Creates a `HOSTED_PAYMENT_PAGE` link and returns its hosted `url` + `reference` |
+| `POST` | `/create-hpp-link` | Creates a `HOSTED_PAYMENT_PAGE` link and returns its hosted `url`, `reference`, and the captured token+link `apiCalls` (for the API Explorer) |
 | `GET` | `/payment-status` | Returns the outcome (`success` / `declined` / `pending`) for a `reference` |
 | `POST` | `/webhook` | Receives GP API notifications (the link's `status_url`) |
 | `GET` | `/webhook-events` | Returns last 20 webhook events for the live UI log |

@@ -12,7 +12,7 @@ test.describe('Hosted Payment Page', () => {
   test('serves the page with the config form and both tabs', async ({ page }) => {
     await page.goto('/');
 
-    for (const tab of ['hpp', 'webhooks']) {
+    for (const tab of ['hpp', 'explorer']) {
       await expect(page.locator(`.gp-tab-button[data-tab="${tab}"]`)).toHaveCount(1);
     }
 
@@ -34,33 +34,45 @@ test.describe('Hosted Payment Page', () => {
   });
 
   // Redirect-mode regression guard. The GP API HOSTED_PAYMENT_PAGE link does not
-  // redirect the browser back to return_url, so "redirect" must NOT navigate the
-  // whole tab away (which strands the customer on GP's blank result page). It must
-  // open the hosted page in a separate tab and keep the merchant page alive to poll
-  // the outcome — exactly the behaviour that was broken before.
-  test('Redirect mode opens the hosted page in a new tab and keeps polling', async ({ page, context }) => {
+  // redirect the browser back with the outcome, and GP's own result page is blank
+  // unless the account is provisioned for it. So "redirect" must NOT navigate the
+  // tab away or open a popup — it loads the hosted page full-bleed *in this page*
+  // and renders the result on that same surface (no orchestration-page round trip).
+  test('Redirect mode loads the hosted page full-bleed in the same tab', async ({ page, context }) => {
     await page.goto('/');
     await page.check('input[name="display"][value="redirect"]', { force: true });
 
-    // Proceed opens the GP-hosted page in a new tab instead of navigating away.
-    const [popup] = await Promise.all([
-      context.waitForEvent('page', { timeout: 30_000 }),
-      page.click('#proceed-btn'),
-    ]);
-    await popup.waitForLoadState('domcontentloaded').catch(() => {});
-    expect(popup.url()).toMatch(/realexpayments\.com|\/hpp\/redirect/);
+    const pagesBefore = context.pages().length;
+    await page.click('#proceed-btn');
 
-    // The merchant tab stayed on the sample (did not redirect to GP) and shows the
-    // waiting state, ready to poll /payment-status for the result.
+    // The full-bleed overlay appears and embeds the GP-hosted iframe in this tab.
+    await expect(page.locator('#fullbleed')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#fullbleed-frame')).toBeVisible();
     expect(page.url()).not.toContain('realexpayments');
-    await expect(page.locator('#state-processing')).toBeVisible();
-    await expect(page.locator('#processing-title')).toContainText(/Complete payment/i);
+    expect(context.pages().length, 'redirect must not open a popup/new tab').toBe(pagesBefore);
 
-    // The hosted page really rendered the card form in the popup.
-    await expect(popup.locator('#pas_ccnum, input[name="cardNumber"]').first())
+    // The hosted page really rendered the card form inside the overlay iframe.
+    const frame = page.frameLocator('#fullbleed-frame');
+    await expect(frame.locator('#pas_ccnum, input[name="cardNumber"]').first())
       .toBeVisible({ timeout: 30_000 });
 
-    await popup.close();
+    // Cancel returns to the configuration screen.
+    await page.click('#fullbleed-close');
+    await expect(page.locator('#fullbleed')).toBeHidden();
+    await expect(page.locator('#state-config')).toBeVisible();
+  });
+
+  // The API Explorer tab surfaces the captured GP API calls after a transaction.
+  test('API Explorer shows the captured GP API call timeline', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#proceed-btn');
+    await expect(page.locator('#state-hosted')).toBeVisible({ timeout: 30_000 });
+
+    await page.click('#tab-explorer');
+    const calls = page.locator('#explorer-feed .gp-xcall');
+    await expect(calls).toHaveCount(4);
+    await expect(page.locator('#explorer-feed')).toContainText('Create Access Token');
+    await expect(page.locator('#explorer-feed')).toContainText('Create a link');
   });
 
   // Full end-to-end payment against the live GP sandbox. This is the real proof
@@ -115,12 +127,15 @@ test.describe('Hosted Payment Page', () => {
       await hppFrame.click('button[type="submit"]').catch(() => {});
     });
 
-    // The parent polls /payment-status until a terminal state renders.
+    // The parent polls /payment-status until a terminal state renders. Pass the
+    // explicit page-function arg (null) so the third options object — and its 90s
+    // timeout — is honoured: a live 3-D Secure round trip can exceed the default
+    // action timeout, especially under Docker load.
     await page.waitForFunction(() => {
       const s = document.getElementById('state-success');
       const d = document.getElementById('state-decline');
       return (s && !s.hidden) || (d && !d.hidden);
-    }, { timeout: 90_000 });
+    }, null, { timeout: 90_000 });
 
     const succeeded = await page.locator('#state-success').isVisible();
 

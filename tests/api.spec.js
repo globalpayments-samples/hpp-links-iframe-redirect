@@ -15,7 +15,10 @@ test.describe('GP API Hosted Payment Page backend endpoints', () => {
   test('POST /create-hpp-link creates a real hosted link', async ({ request }) => {
     const res = await request.post('/create-hpp-link', {
       headers: { 'Content-Type': 'application/json' },
-      data: { amount: '200.00', currency: 'USD', displayMethod: 'iframe', config: { threeds: true } },
+      data: {
+        amount: '200.00', currency: 'GBP', displayMethod: 'iframe',
+        config: { threeds: true, digitalWallets: true, apms: ['testpay', 'paybybankapp'] },
+      },
     });
     expect(res.ok(), `expected 2xx, got ${res.status()}`).toBeTruthy();
 
@@ -26,6 +29,23 @@ test.describe('GP API Hosted Payment Page backend endpoints', () => {
     expect(typeof body.url).toBe('string');
     expect(body.url).toContain('globalpay');
     expect(body.reference).toMatch(/^order-/);
+
+    // The API Explorer contract: token + link calls are captured (request +
+    // response), in order, with the bearer token redacted.
+    expect(Array.isArray(body.apiCalls)).toBeTruthy();
+    const steps = body.apiCalls.map((c) => `${c.step}/${c.dir}`);
+    expect(steps).toEqual(['token/request', 'token/response', 'link/request', 'link/response']);
+    const tokenRes = body.apiCalls.find((c) => c.step === 'token' && c.dir === 'response');
+    expect(String(tokenRes.body.token)).toContain('redacted');
+
+    // The corrected link request shape: digital wallets via provider list, APMs in
+    // order.transaction_configuration.allowed_payment_methods (alongside CARD).
+    const linkReq = body.apiCalls.find((c) => c.step === 'link' && c.dir === 'request');
+    const order = linkReq.body.order;
+    expect(order.payment_method_configuration.digital_wallets.provider).toContain('googlepay');
+    expect(order.transaction_configuration.allowed_payment_methods).toEqual(
+      expect.arrayContaining(['CARD', 'testpay', 'paybybankapp']));
+    expect(order.transaction_configuration.capture_mode).toBe('AUTO');
   });
 
   test('POST /create-hpp-link rejects a non-positive amount with 400', async ({ request }) => {

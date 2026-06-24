@@ -38,24 +38,43 @@ webhook_events = deque(maxlen=20)
 GP_BASE    = 'https://apis.sandbox.globalpay.com/ucp'
 GP_VERSION = '2021-03-22'
 
+# Country to send for each supported currency (drives APM availability on the
+# hosted page); the processing account resolves the merchant.
+COUNTRY_FOR = {'USD': 'US', 'EUR': 'IE', 'GBP': 'GB', 'CAD': 'CA'}
 
-def get_token():
+
+def redact_secret(value):
+    """Redact a bearer token / secret to a recognisable prefix for the API Explorer."""
+    s = str(value or '')
+    return (s[:12] + '…(redacted)') if len(s) > 12 else s
+
+
+def get_token(trace=None):
     """Mint a GP API Bearer token carrying the app's full scope (incl. LNK_POST_Create).
-    secret = sha512(nonce + appKey); the App Key never reaches the browser."""
+    secret = sha512(nonce + appKey); the App Key never reaches the browser. If `trace`
+    is given, record the (redacted) request/response for the API Explorer."""
     nonce  = datetime.now(timezone.utc).isoformat()
     secret = hashlib.sha512((nonce + os.getenv('GP_APP_KEY', '')).encode()).hexdigest()
+    req_body = {
+        'app_id':     os.getenv('GP_APP_ID'),
+        'nonce':      nonce,
+        'secret':     secret,
+        'grant_type': 'client_credentials',
+    }
     resp = requests.post(
         f'{GP_BASE}/accesstoken',
-        json={
-            'app_id':     os.getenv('GP_APP_ID'),
-            'nonce':      nonce,
-            'secret':     secret,
-            'grant_type': 'client_credentials',
-        },
+        json=req_body,
         headers={'X-GP-Version': GP_VERSION},
         timeout=10,
     )
     data = resp.json()
+    if trace is not None:
+        trace.append({'step': 'token', 'dir': 'request', 'label': 'Create Access Token',
+                      'method': 'POST', 'endpoint': '/ucp/accesstoken',
+                      'body': {**req_body, 'secret': redact_secret(secret)}})
+        trace.append({'step': 'token', 'dir': 'response', 'label': 'Create Access Token',
+                      'status': resp.status_code,
+                      'body': {**data, 'token': redact_secret(data['token'])} if data.get('token') else data})
     if not resp.ok:
         raise RuntimeError(data.get('detailed_error_description') or data.get('error_code') or 'Access token request failed')
     return data['token']
@@ -76,24 +95,29 @@ def build_link_body(amount, currency, config, reference, payer):
     Amounts are sent in minor units (cents)."""
     minor = str(round(float(amount) * 100))
     cfg   = config or {}
+    cur     = currency or 'USD'
+    country = COUNTRY_FOR.get(cur, 'US')
 
-    # Value-add toggles map into transaction_configuration. 3-D Secure runs
-    # automatically on the hosted page; wallet/APM availability is account-
-    # provisioned, so these flags are best-effort hints (unknown fields are
-    # ignored by the API rather than rejected).
-    transaction_configuration = {'country': 'US', 'channel': 'CNP'}
-    if cfg.get('dcc'):
-        transaction_configuration['allow_dynamic_currency_conversion'] = True
+    # order.transaction_configuration — APMs are enabled by adding their method
+    # strings to allowed_payment_methods (alongside the mandatory "CARD").
+    apms = [a for a in (cfg.get('apms') or []) if a]
+    transaction_configuration = {
+        'channel':                  'CNP',
+        'country':                  country,
+        'capture_mode':             'AUTO',
+        'currency_conversion_mode': 'YES' if cfg.get('dcc') else 'NO',
+        'allowed_payment_methods':  ['CARD'] + apms,
+    }
     if cfg.get('cardStorage'):
         transaction_configuration['enable_card_storage'] = True
 
-    allowed_payment_methods = ['CARD']
+    # order.payment_method_configuration — 3DS preference + digital wallets provider list.
+    payment_method_configuration = {
+        'authentication': {'preference': 'CHALLENGE_PREFERRED' if cfg.get('threeds') else 'NO_CHALLENGE_REQUESTED'}
+    }
     if cfg.get('digitalWallets'):
-        allowed_payment_methods.append('DIGITAL_WALLET')
-    if cfg.get('apm'):
-        allowed_payment_methods.append('PAYPAL')
+        payment_method_configuration['digital_wallets'] = {'provider': ['googlepay', 'applepay']}
 
-    cur = currency or 'USD'
     return {
         'account_name':    os.getenv('GP_ACCOUNT_NAME'),   # transaction_processing_hpp
         'type':            'HOSTED_PAYMENT_PAGE',
@@ -107,14 +131,14 @@ def build_link_body(amount, currency, config, reference, payer):
             'amount':   minor,
             'currency': cur,
             'reference': reference,
-            'transaction_configuration': transaction_configuration,
+            'transaction_configuration':    transaction_configuration,
+            'payment_method_configuration': payment_method_configuration,
         },
         'transactions': {
-            'amount':                  minor,
-            'channel':                 'CNP',
-            'country':                 'US',
-            'currency':                cur,
-            'allowed_payment_methods': allowed_payment_methods,
+            'amount':   minor,
+            'channel':  'CNP',
+            'country':  country,
+            'currency': cur,
         },
         'payer': {
             'email': (payer or {}).get('email') or 'sandbox.payer@example.com',
@@ -155,10 +179,15 @@ def create_hpp_link():
     if amount <= 0:
         return jsonify({'success': False, 'error': 'A positive amount is required'}), 400
 
+    # Record each GP API call (request + response) for the UI's API Explorer.
+    api_calls = []
     try:
-        token     = get_token()
+        token     = get_token(api_calls)
         reference = f'order-{int(time.time() * 1000)}'
         link_body = build_link_body(amount, body.get('currency'), body.get('config'), reference, body.get('payer'))
+
+        api_calls.append({'step': 'link', 'dir': 'request', 'label': 'Create a link',
+                          'method': 'POST', 'endpoint': '/ucp/links', 'body': link_body})
 
         resp = requests.post(
             f'{GP_BASE}/links',
@@ -167,13 +196,16 @@ def create_hpp_link():
             timeout=30,
         )
         data = resp.json()
+        api_calls.append({'step': 'link', 'dir': 'response', 'label': 'Create a link',
+                          'status': resp.status_code, 'body': data})
         if not resp.ok:
             msg = data.get('detailed_error_description') or data.get('error_code') or 'Link creation failed'
-            return jsonify({'success': False, 'error': msg}), 400
+            return jsonify({'success': False, 'error': msg, 'apiCalls': api_calls}), 400
 
-        return jsonify({'success': True, 'id': data.get('id'), 'url': data.get('url'), 'reference': reference})
+        return jsonify({'success': True, 'id': data.get('id'), 'url': data.get('url'),
+                        'reference': reference, 'apiCalls': api_calls})
     except Exception as exc:
-        return jsonify({'success': False, 'error': str(exc)}), 500
+        return jsonify({'success': False, 'error': str(exc), 'apiCalls': api_calls}), 500
 
 
 # ─── GET /payment-status ─────────────────────────────────────────────────────

@@ -69,17 +69,32 @@ public class Program
             var payer     = body.TryGetProperty("payer", out var p) ? p : default;
             var reference = $"order-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             var minor     = decimal.Round(amount * 100, 0).ToString("0", CultureInfo.InvariantCulture);
+            var country   = CountryFor(currency);
 
-            // Value-add toggles → transaction_configuration. 3-D Secure runs
-            // automatically; wallet/APM availability is account-provisioned, so these
-            // are best-effort hints (unknown fields are ignored by the API).
-            var txnConfig = new Dictionary<string, object> { ["country"] = "US", ["channel"] = "CNP" };
-            if (Flag(config, "dcc"))         txnConfig["allow_dynamic_currency_conversion"] = true;
-            if (Flag(config, "cardStorage")) txnConfig["enable_card_storage"]               = true;
-
+            // order.transaction_configuration — APMs are enabled by adding their method
+            // strings to allowed_payment_methods (alongside the mandatory "CARD").
             var methods = new List<string> { "CARD" };
-            if (Flag(config, "digitalWallets")) methods.Add("DIGITAL_WALLET");
-            if (Flag(config, "apm"))            methods.Add("PAYPAL");
+            methods.AddRange(Apms(config));
+            var txnConfig = new Dictionary<string, object>
+            {
+                ["channel"]                  = "CNP",
+                ["country"]                  = country,
+                ["capture_mode"]             = "AUTO",
+                ["currency_conversion_mode"] = Flag(config, "dcc") ? "YES" : "NO",
+                ["allowed_payment_methods"]  = methods
+            };
+            if (Flag(config, "cardStorage")) txnConfig["enable_card_storage"] = true;
+
+            // order.payment_method_configuration — 3DS preference + digital wallets.
+            var pmConfig = new Dictionary<string, object>
+            {
+                ["authentication"] = new Dictionary<string, object>
+                {
+                    ["preference"] = Flag(config, "threeds") ? "CHALLENGE_PREFERRED" : "NO_CHALLENGE_REQUESTED"
+                }
+            };
+            if (Flag(config, "digitalWallets"))
+                pmConfig["digital_wallets"] = new Dictionary<string, object> { ["provider"] = new List<string> { "googlepay", "applepay" } };
 
             var linkBody = new Dictionary<string, object?>
             {
@@ -96,15 +111,15 @@ public class Program
                     ["amount"]    = minor,
                     ["currency"]  = currency,
                     ["reference"] = reference,
-                    ["transaction_configuration"] = txnConfig
+                    ["transaction_configuration"]    = txnConfig,
+                    ["payment_method_configuration"] = pmConfig
                 },
                 ["transactions"] = new Dictionary<string, object?>
                 {
-                    ["amount"]                  = minor,
-                    ["channel"]                 = "CNP",
-                    ["country"]                 = "US",
-                    ["currency"]                = currency,
-                    ["allowed_payment_methods"] = methods
+                    ["amount"]   = minor,
+                    ["channel"]  = "CNP",
+                    ["country"]  = country,
+                    ["currency"] = currency
                 },
                 ["payer"] = new Dictionary<string, object?>
                 {
@@ -118,31 +133,39 @@ public class Program
                 }
             };
 
+            // Records each GP API call (request + response) for the UI's API Explorer.
+            var apiCalls = new List<object>();
             try
             {
-                var token = await GetTokenAsync();
+                var token = await GetTokenAsync(apiCalls);
                 using var http = NewHttpClient();
                 http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
                 http.DefaultRequestHeaders.Add("X-GP-Version", GpVersion);
 
+                apiCalls.Add(new { step = "link", dir = "request", label = "Create a link",
+                                   method = "POST", endpoint = "/ucp/links", body = linkBody });
+
                 var gpRes = await http.PostAsync($"{GpBase}/links",
                     new StringContent(JsonSerializer.Serialize(linkBody), Encoding.UTF8, "application/json"));
                 var data = JsonSerializer.Deserialize<JsonElement>(await gpRes.Content.ReadAsStringAsync());
+                apiCalls.Add(new { step = "link", dir = "response", label = "Create a link",
+                                   status = (int)gpRes.StatusCode, body = data });
 
                 if (!gpRes.IsSuccessStatusCode || !data.TryGetProperty("id", out var idEl))
-                    return Results.BadRequest(new { success = false, error = ErrorMessage(data, "Link creation failed") });
+                    return Results.BadRequest(new { success = false, error = ErrorMessage(data, "Link creation failed"), apiCalls });
 
                 return Results.Ok(new
                 {
                     success   = true,
                     id        = idEl.GetString(),
                     url       = data.TryGetProperty("url", out var u) ? u.GetString() : null,
-                    reference
+                    reference,
+                    apiCalls
                 });
             }
             catch (Exception ex)
             {
-                return Results.Json(new { success = false, error = ex.Message }, statusCode: 500);
+                return Results.Json(new { success = false, error = ex.Message, apiCalls }, statusCode: 500);
             }
         });
 
@@ -238,17 +261,18 @@ public class Program
 
     // ─── GP API token ─────────────────────────────────────────────────────────
     // Mint a Bearer token carrying the app's full scope (incl. LNK_POST_Create).
-    private static async Task<string> GetTokenAsync()
+    private static async Task<string> GetTokenAsync(List<object>? trace = null)
     {
         var nonce  = DateTime.UtcNow.ToString("o");
         var secret = Sha512Hex(nonce + Env("GP_APP_KEY"));
-        var body   = JsonSerializer.Serialize(new
+        var reqBody = new
         {
             app_id     = Env("GP_APP_ID"),
             nonce,
             secret,
             grant_type = "client_credentials"
-        });
+        };
+        var body = JsonSerializer.Serialize(reqBody);
 
         using var http = NewHttpClient();
         http.DefaultRequestHeaders.Add("X-GP-Version", GpVersion);
@@ -256,9 +280,50 @@ public class Program
             new StringContent(body, Encoding.UTF8, "application/json"));
         var data = JsonSerializer.Deserialize<JsonElement>(await gpRes.Content.ReadAsStringAsync());
 
+        if (trace != null)
+        {
+            trace.Add(new { step = "token", dir = "request", label = "Create Access Token", method = "POST",
+                            endpoint = "/ucp/accesstoken",
+                            body = new { reqBody.app_id, reqBody.nonce, secret = RedactSecret(secret), reqBody.grant_type } });
+            object resBody = data;
+            if (data.TryGetProperty("token", out var t))
+            {
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in data.EnumerateObject()) dict[prop.Name] = prop.Value;
+                dict["token"] = RedactSecret(t.GetString());
+                resBody = dict;
+            }
+            trace.Add(new { step = "token", dir = "response", label = "Create Access Token", status = (int)gpRes.StatusCode, body = resBody });
+        }
+
         if (!gpRes.IsSuccessStatusCode || !data.TryGetProperty("token", out var tok))
             throw new Exception(ErrorMessage(data, "Access token request failed"));
         return tok.GetString()!;
+    }
+
+    private static readonly Dictionary<string, string> CountryMap =
+        new() { ["USD"] = "US", ["EUR"] = "IE", ["GBP"] = "GB", ["CAD"] = "CA" };
+
+    private static string CountryFor(string currency) =>
+        CountryMap.TryGetValue(currency, out var c) ? c : "US";
+
+    // Selected APM method strings from the config.apms array.
+    private static List<string> Apms(JsonElement config)
+    {
+        var list = new List<string>();
+        if (config.ValueKind == JsonValueKind.Object &&
+            config.TryGetProperty("apms", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var el in arr.EnumerateArray())
+                if (el.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(el.GetString()))
+                    list.Add(el.GetString()!);
+        return list;
+    }
+
+    // Redact a bearer token / secret to a recognisable prefix for the API Explorer.
+    private static string RedactSecret(string? value)
+    {
+        var s = value ?? "";
+        return s.Length > 12 ? s[..12] + "…(redacted)" : s;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────

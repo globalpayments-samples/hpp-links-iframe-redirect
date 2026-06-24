@@ -79,25 +79,45 @@ public class HostedPaymentServlet extends HttpServlet {
     }
 
     // ─── Mint a GP API token carrying the app's full scope (incl. LNK_POST_Create) ──
-    private String getToken() throws Exception {
+    // If `trace` is non-null, record the (redacted) request/response for the API Explorer.
+    private String getToken(ArrayNode trace) throws Exception {
         String nonce  = Instant.now().toString();
         String secret = sha512Hex(nonce + dotenv.get("GP_APP_KEY"));
-        String body   = mapper.writeValueAsString(mapper.createObjectNode()
+        ObjectNode reqBody = mapper.createObjectNode()
                 .put("app_id",     dotenv.get("GP_APP_ID"))
                 .put("nonce",      nonce)
                 .put("secret",     secret)
-                .put("grant_type", "client_credentials"));
+                .put("grant_type", "client_credentials");
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(GP_BASE + "/accesstoken"))
                 .header("Content-Type",    "application/json")
                 .header("X-GP-Version",    GP_VERSION)
                 .header("Accept-Encoding", "identity")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(reqBody)))
                 .build();
 
         HttpResponse<String> gpRes = http.send(request, HttpResponse.BodyHandlers.ofString());
         JsonNode data = mapper.readTree(gpRes.body());
+
+        if (trace != null) {
+            ObjectNode reqRedacted = reqBody.deepCopy();
+            reqRedacted.put("secret", redact(secret));
+            ObjectNode reqCall = apiCall("token", "request", "Create Access Token");
+            reqCall.put("method", "POST").put("endpoint", "/ucp/accesstoken");
+            reqCall.set("body", reqRedacted);
+            trace.add(reqCall);
+
+            JsonNode resRedacted = data;
+            if (!data.path("token").asText("").isEmpty() && data instanceof ObjectNode) {
+                resRedacted = data.deepCopy();
+                ((ObjectNode) resRedacted).put("token", redact(data.get("token").asText()));
+            }
+            ObjectNode resCall = apiCall("token", "response", "Create Access Token");
+            resCall.put("status", gpRes.statusCode());
+            resCall.set("body", resRedacted);
+            trace.add(resCall);
+        }
         if (gpRes.statusCode() != 200 || data.path("token").asText("").isEmpty()) {
             throw new RuntimeException(errorMessage(data, "Access token request failed"));
         }
@@ -133,25 +153,37 @@ public class HostedPaymentServlet extends HttpServlet {
             JsonNode payer    = input.path("payer");
             String reference  = "order-" + System.currentTimeMillis();
             String minor      = amount.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).toPlainString();
+            String country    = countryFor(currency);
 
-            // Value-add toggles → transaction_configuration. 3-D Secure runs
-            // automatically; wallet/APM availability is account-provisioned, so these
-            // are best-effort hints (unknown fields are ignored by the API).
-            ObjectNode txnConfig = mapper.createObjectNode().put("country", "US").put("channel", "CNP");
-            if (config.path("dcc").asBoolean(false))         txnConfig.put("allow_dynamic_currency_conversion", true);
+            // order.transaction_configuration — APMs are enabled by adding their method
+            // strings to allowed_payment_methods (alongside the mandatory "CARD").
+            ArrayNode methods = mapper.createArrayNode().add("CARD");
+            for (JsonNode apm : config.path("apms")) {
+                if (apm.isTextual() && !apm.asText().isBlank()) methods.add(apm.asText());
+            }
+            ObjectNode txnConfig = mapper.createObjectNode()
+                    .put("channel", "CNP")
+                    .put("country", country)
+                    .put("capture_mode", "AUTO")
+                    .put("currency_conversion_mode", config.path("dcc").asBoolean(false) ? "YES" : "NO");
+            txnConfig.set("allowed_payment_methods", methods);
             if (config.path("cardStorage").asBoolean(false)) txnConfig.put("enable_card_storage", true);
 
-            ArrayNode methods = mapper.createArrayNode().add("CARD");
-            if (config.path("digitalWallets").asBoolean(false)) methods.add("DIGITAL_WALLET");
-            if (config.path("apm").asBoolean(false))            methods.add("PAYPAL");
+            // order.payment_method_configuration — 3DS preference + digital wallets.
+            ObjectNode pmConfig = mapper.createObjectNode();
+            pmConfig.putObject("authentication")
+                    .put("preference", config.path("threeds").asBoolean(false) ? "CHALLENGE_PREFERRED" : "NO_CHALLENGE_REQUESTED");
+            if (config.path("digitalWallets").asBoolean(false)) {
+                pmConfig.putObject("digital_wallets").putArray("provider").add("googlepay").add("applepay");
+            }
 
             ObjectNode order = mapper.createObjectNode()
                     .put("amount", minor).put("currency", currency).put("reference", reference);
             order.set("transaction_configuration", txnConfig);
+            order.set("payment_method_configuration", pmConfig);
 
             ObjectNode transactions = mapper.createObjectNode()
-                    .put("amount", minor).put("channel", "CNP").put("country", "US").put("currency", currency);
-            transactions.set("allowed_payment_methods", methods);
+                    .put("amount", minor).put("channel", "CNP").put("country", country).put("currency", currency);
 
             ObjectNode payerNode = mapper.createObjectNode()
                     .put("email", payer.path("email").asText("sandbox.payer@example.com"))
@@ -175,7 +207,15 @@ public class HostedPaymentServlet extends HttpServlet {
             linkBody.set("payer", payerNode);
             linkBody.set("notifications", notifications);
 
-            String token = getToken();
+            // Records each GP API call (request + response) for the UI's API Explorer.
+            ArrayNode apiCalls = mapper.createArrayNode();
+            String token = getToken(apiCalls);
+
+            ObjectNode linkReqCall = apiCall("link", "request", "Create a link");
+            linkReqCall.put("method", "POST").put("endpoint", "/ucp/links");
+            linkReqCall.set("body", linkBody);
+            apiCalls.add(linkReqCall);
+
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(GP_BASE + "/links"))
                     .header("Authorization",   "Bearer " + token)
@@ -187,8 +227,17 @@ public class HostedPaymentServlet extends HttpServlet {
 
             HttpResponse<String> gpRes = http.send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode data = mapper.readTree(gpRes.body());
+            ObjectNode linkResCall = apiCall("link", "response", "Create a link");
+            linkResCall.put("status", gpRes.statusCode());
+            linkResCall.set("body", data);
+            apiCalls.add(linkResCall);
+
             if (gpRes.statusCode() != 200 || data.path("id").asText("").isEmpty()) {
-                writeError(res, 400, errorMessage(data, "Link creation failed"));
+                ObjectNode err = mapper.createObjectNode();
+                err.put("success", false).put("error", errorMessage(data, "Link creation failed"));
+                err.set("apiCalls", apiCalls);
+                res.setStatus(400);
+                res.getWriter().write(mapper.writeValueAsString(err));
                 return;
             }
 
@@ -197,6 +246,7 @@ public class HostedPaymentServlet extends HttpServlet {
             out.put("id", data.get("id").asText());
             out.put("url", data.path("url").asText());
             out.put("reference", reference);
+            out.set("apiCalls", apiCalls);
             res.getWriter().write(mapper.writeValueAsString(out));
 
         } catch (Exception e) {
@@ -213,7 +263,7 @@ public class HostedPaymentServlet extends HttpServlet {
             return;
         }
         try {
-            String token = getToken();
+            String token = getToken(null);
             String url = GP_BASE + "/transactions?reference=" + URLEncoder.encode(reference, StandardCharsets.UTF_8);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -318,6 +368,27 @@ public class HostedPaymentServlet extends HttpServlet {
     private static String headerOr(HttpServletRequest req, String name, String fallback) {
         String v = req.getHeader(name);
         return (v == null || v.isBlank()) ? fallback : v;
+    }
+
+    // Build the common { step, dir, label } envelope for an API Explorer entry.
+    private ObjectNode apiCall(String step, String dir, String label) {
+        return mapper.createObjectNode().put("step", step).put("dir", dir).put("label", label);
+    }
+
+    // Redact a bearer token / secret to a recognisable prefix for the API Explorer.
+    private static String redact(String value) {
+        String s = value == null ? "" : value;
+        return s.length() > 12 ? s.substring(0, 12) + "…(redacted)" : s;
+    }
+
+    // Country to send for each supported currency (drives APM availability).
+    private static String countryFor(String currency) {
+        switch (currency == null ? "" : currency) {
+            case "GBP": return "GB";
+            case "EUR": return "IE";
+            case "CAD": return "CA";
+            default:    return "US";
+        }
     }
 
     private static String classify(String status) {

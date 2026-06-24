@@ -22,7 +22,7 @@ Browser                         Merchant server                     GP API
   |                                 |-- POST /ucp/links -------------->|  type=HOSTED_PAYMENT_PAGE
   |<-- {id:LNK_…, url, reference} --|<-- {id, url:…/hpp/redirect/guid}-|
   |                                 |                                  |
-  | iframe.src = url  (or window.open(url) in a new tab for redirect) |
+  | iframe.src = url  (iframe mode, or a full-bleed in-page overlay for redirect) |
   |        └─ 302 → pay.sandbox.realexpayments.com/hosted-payments/blue/card.html?guid=…
   |           (GP-hosted: card entry + 3-D Secure 2 + wallets/DCC/APMs)
   |                                 |                                  |
@@ -34,12 +34,14 @@ Browser                         Merchant server                     GP API
 - **Drop-In UI (old) vs HPP (now):** Drop-In embedded tokenizing card iframes on the
   merchant page and the backend charged a `paymentReference`. HPP puts the **entire**
   payment UI on a GP-hosted page; the merchant only creates a link and reads the result.
-- **Display method:** `iframe` embeds `url` in an `<iframe>`; `redirect` opens `url` in a
-  **separate browser tab** (`window.open`). Both 302 to the same Realex "blue" hosted page,
-  and in **both** modes the merchant page stays alive and polls `/payment-status`. A
+- **Display method:** `iframe` embeds `url` in an inline `<iframe>`; `redirect` goes
+  **full-bleed in the same tab** — a fixed overlay embeds the hosted page edge-to-edge and
+  then renders the result on that same surface. Both 302 to the same Realex "blue" hosted
+  page, and in **both** modes the merchant page stays alive and polls `/payment-status`. A
   HOSTED_PAYMENT_PAGE link does **not** redirect the browser back to `return_url` (verified
-  live — see §5), so a full same-tab `window.location` navigation would strand the customer
-  on GP's blank result page; the new-tab approach keeps a context that can poll the outcome.
+  live — see §5), so `redirect` must not do a real same-tab `window.location` navigation
+  (it would strand the customer on GP's blank result page) nor a `window.open` popup; the
+  full-bleed overlay keeps a context that can poll the outcome and show it without leaving.
 - **No SDKs:** all five backends call the REST API directly. The `HOSTED_PAYMENT_PAGE`
   link type isn't uniformly exposed by the SDKs, and the SDKs caused routing gotchas.
 
@@ -145,34 +147,64 @@ Success response (trimmed):
 
 GP error fields are `error_code` / `detailed_error_description` (not `detail`).
 
-### Value-add toggles (best-effort)
-The frontend `config` flags map into the link request, but **GP does not echo them back**
-and their visible effect depends on **account provisioning**. Unknown fields are accepted
-(ignored), not rejected. 3-D Secure runs automatically regardless of the toggle.
-- `dcc` → `order.transaction_configuration.allow_dynamic_currency_conversion`
-- `cardStorage` → `order.transaction_configuration.enable_card_storage`
-- `digitalWallets` → adds `DIGITAL_WALLET` to `transactions.allowed_payment_methods`
-- `apm` → adds `PAYPAL` to `transactions.allowed_payment_methods`
+### Value-add toggles (map into `order`, verified live)
+The frontend `config` flags map into the link request as below. **GP does not echo them
+back**, and their **visible** effect (wallet/APM buttons, iframe auto-resize) depends on
+**account provisioning** this shared sandbox lacks. Unknown fields are accepted (ignored),
+not rejected. All combinations below return `200` live (USD/EUR/GBP/CAD).
+- `apms: string[]` → appended to `order.transaction_configuration.allowed_payment_methods`
+  after the mandatory `"CARD"`, e.g. `["CARD","testpay","paybybankapp","paysafecard","sepapm","bitpay"]`.
+  ⚠️ **`allowed_payment_methods` must be present** (≥ `["CARD"]`) — omitting it returns
+  `40041 INVALID_REQUEST_DATA "Merchant configuration does not exist … payment_method - NULL"`.
+  APM strings are currency/region-specific (see GP's payment-methods list).
+- `dcc` → `order.transaction_configuration.currency_conversion_mode` = `"YES"` / `"NO"`.
+- `threeds` → `order.payment_method_configuration.authentication.preference` =
+  `"CHALLENGE_PREFERRED"` / `"NO_CHALLENGE_REQUESTED"` (3-D Secure runs regardless).
+- `digitalWallets` → `order.payment_method_configuration.digital_wallets.provider`
+  = `["googlepay","applepay"]`.
+- `cardStorage` → `order.transaction_configuration.enable_card_storage` (best-effort).
+
+Always also send `order.transaction_configuration.capture_mode: "AUTO"` and a `country`
+derived from the currency (USD→US, EUR→IE, GBP→GB, CAD→CA). `allowed_payment_methods`
+lives under **`order.transaction_configuration`**, not under `transactions`.
+
+The backend captures the token + link request/response (bearer token redacted) and returns
+them as `apiCalls` for the **API Explorer** tab.
 
 ---
 
 ## 5. Step 3 — Render the hosted page
 
-Load `url` in an iframe (`displayMethod=iframe`) or open it in a new tab with
-`window.open(url)` (`redirect`). It 302s to the Realex "blue" hosted page:
+Load `url` in an inline iframe (`displayMethod=iframe`) or in a **full-bleed in-page
+overlay** (`redirect`). It 302s to the Realex "blue" hosted page:
 `https://pay.sandbox.realexpayments.com/hosted-payments/blue/card.html?guid=<guid>`.
 
-⚠️ **A HOSTED_PAYMENT_PAGE link does not redirect the browser back to `return_url`.**
-Verified live by driving the full card + 3-D Secure flow: after payment the hosted page
-lands on `…/blue/result.html?guid=…` and **stops there** — the result page renders with an
-empty `data-auth-result` and performs no navigation (identical behaviour whether
-`return_url` is `http://localhost` or a valid public `https://` origin, so it is not a
-URL-validity issue). The redirect-back appears to depend on account-level merchant-response
-provisioning that this shared sandbox app does not carry. Consequently **`redirect` mode
-must not do a full same-tab `window.location` navigation** (it would strand the customer on
-that blank result page). The sample opens the hosted page in a separate tab and keeps the
-merchant page polling `/payment-status` — the same outcome source the iframe flow uses.
-`return_url` / `status_url` are still sent (harmless; `status_url` still drives webhooks).
+⚠️ **A HOSTED_PAYMENT_PAGE link does not redirect the browser back to `return_url`, and
+its result page is blank on this sandbox.** Verified live by driving the full card + 3-D
+Secure flow: after payment the hosted page lands on `…/blue/result.html?guid=…` and **stops
+there** — `result.html` renders with body height ~10px, empty text and an empty
+`data-auth-result`, and performs no navigation (identical whether `return_url` is
+`http://localhost` or a valid public `https://` origin, so it is not a URL-validity issue).
+Consequently `redirect` must not do a real same-tab `window.location` navigation (it would
+strand the customer on that blank page), nor a `window.open` popup. The sample loads the
+hosted page **full-bleed in the same tab** and keeps polling `/payment-status`, then renders
+the outcome on that same full-screen surface — so the result shows "on the page the HPP
+loaded in" without a round trip to the orchestration view. `return_url` / `status_url` are
+still sent (harmless; `status_url` still drives webhooks). `handleReturn()` also resolves
+the outcome onto the in-page panel if a provisioned account *does* redirect back.
+
+### Iframe auto-resize + result posting (the Realex `HPP_POST_*` protocol)
+The hosted page can post to its embedding parent — **resize** messages (auto-grow the
+iframe for wallets/APMs) and the **transaction response** — but only when the request
+carries `HPP_POST_DIMENSIONS` / `HPP_POST_RESPONSE` set to the parent origin (see
+`globalpayments/rxp-js` `dist/rxp-js.js`: `createForm`, `receiveMessage`). A resize message
+is **base64-encoded JSON** of the form `{ iframe: { width:"…px", height:"…px" } }`. The
+sample listens for it (`window` `message` handler, origin-checked, base64-decoded) and sets
+the iframe height; a non-`iframe` payload is the response. **Verified live (2026-06-24):**
+the GP API `/ucp/links` request does not expose `HPP_POST_DIMENSIONS`/`HPP_POST_RESPONSE`
+on the shared sandbox, and URL params are ignored (the 302 strips them) — so this sandbox's
+hosted page posts **nothing**, wallets/APMs don't render, and the iframe keeps its default
+height. The listener is correct for a provisioned account but is not exercisable here.
 
 **Hosted-page selectors** (for browser automation):
 
@@ -241,13 +273,15 @@ settles `PREAUTHORIZED`.
 |--------------|-------------|
 | Create HOSTED_PAYMENT_PAGE link server-side | ✅ `/create-hpp-link` → `POST /ucp/links` |
 | Display method: iframe **and** redirect | ✅ segmented toggle |
-| Value adds: 3DS, card storage (+ user type), DCC, digital wallets, APMs | ✅ toggles → link request |
+| Value adds: 3DS, card storage (+ user type), DCC, digital wallets, APMs (multi-select) | ✅ toggles + APM checklist → link request |
 | Region / currency selection | ✅ currency select (USD/EUR/GBP/CAD) |
 | Order summary + amount | ✅ order total + amount input |
 | GP-hosted card entry + 3DS in iframe | ✅ Realex blue page in `#hosted-frame` |
 | Result panel (success/decline) | ✅ polled via `/payment-status` |
+| Redirect shows the result on the hosted surface | ✅ full-bleed overlay renders the outcome in-page |
+| API Explorer: live token/link request+response timeline | ✅ **API Explorer** tab (from `apiCalls`) + webhook feed |
 | Test-card helper | ✅ sandbox test-card hint |
 
 Deliberately **not** replicated (demo-site chrome, not part of the payment flow): the
-multi-merchant catalog, the API Explorer side panel, the guided walkthrough, and the
-analytics. The payment flow, functionality, and architecture match.
+multi-merchant catalog, the guided walkthrough, and the analytics. The payment flow,
+functionality, and architecture match.

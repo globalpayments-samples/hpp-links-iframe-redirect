@@ -15,6 +15,16 @@ Dotenv::createImmutable(__DIR__)->safeLoad();
 const GP_BASE    = 'https://apis.sandbox.globalpay.com/ucp';
 const GP_VERSION = '2021-03-22';
 
+// Country to send for each supported currency (drives APM availability on the
+// hosted page); the processing account resolves the merchant.
+const COUNTRY_FOR = ['USD' => 'US', 'EUR' => 'IE', 'GBP' => 'GB', 'CAD' => 'CA'];
+
+/** Redact a bearer token / secret to a recognisable prefix for the API Explorer. */
+function gp_redact(string $value): string
+{
+    return strlen($value) > 12 ? substr($value, 0, 12) . '…(redacted)' : $value;
+}
+
 /** A small curl wrapper returning [httpStatus, decodedJson]. */
 function gp_request(string $method, string $url, array $headers, ?string $body = null): array
 {
@@ -36,21 +46,35 @@ function gp_request(string $method, string $url, array $headers, ?string $body =
     return [$status, is_array($data) ? $data : []];
 }
 
-/** Mint a GP API Bearer token carrying the app's full scope (incl. LNK_POST_Create). */
-function gp_token(): string
+/**
+ * Mint a GP API Bearer token carrying the app's full scope (incl. LNK_POST_Create).
+ * If $trace is provided, append the (redacted) request/response for the API Explorer.
+ */
+function gp_token(?array &$trace = null): string
 {
     $nonce  = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.v\Z');
     $secret = hash('sha512', $nonce . ($_ENV['GP_APP_KEY'] ?? ''));
 
-    [$status, $data] = gp_request('POST', GP_BASE . '/accesstoken', [
-        'Content-Type: application/json',
-        'X-GP-Version: ' . GP_VERSION,
-    ], json_encode([
+    $reqBody = [
         'app_id'     => $_ENV['GP_APP_ID'] ?? '',
         'nonce'      => $nonce,
         'secret'     => $secret,
         'grant_type' => 'client_credentials',
-    ]));
+    ];
+    [$status, $data] = gp_request('POST', GP_BASE . '/accesstoken', [
+        'Content-Type: application/json',
+        'X-GP-Version: ' . GP_VERSION,
+    ], json_encode($reqBody));
+
+    if ($trace !== null) {
+        $trace[] = ['step' => 'token', 'dir' => 'request', 'label' => 'Create Access Token',
+                    'method' => 'POST', 'endpoint' => '/ucp/accesstoken',
+                    'body' => array_merge($reqBody, ['secret' => gp_redact($secret)])];
+        $resBody = $data;
+        if (!empty($resBody['token'])) $resBody['token'] = gp_redact($resBody['token']);
+        $trace[] = ['step' => 'token', 'dir' => 'response', 'label' => 'Create Access Token',
+                    'status' => $status, 'body' => $resBody];
+    }
 
     if ($status !== 200 || empty($data['token'])) {
         throw new RuntimeException($data['detailed_error_description'] ?? $data['error_code'] ?? 'Access token request failed');

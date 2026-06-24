@@ -29,6 +29,18 @@ const PORT = process.env.PORT || 8000;
 const GP_BASE    = 'https://apis.sandbox.globalpay.com/ucp';
 const GP_VERSION = '2021-03-22';
 
+// Country to send for each supported currency (drives APM availability on the
+// hosted page). The processing account resolves the merchant; this only scopes
+// the order's transaction_configuration.
+const COUNTRY_FOR = { USD: 'US', EUR: 'IE', GBP: 'GB', CAD: 'CA' };
+
+// Redact a bearer token / secret to a recognisable prefix so the API Explorer can
+// show the real call shape without leaking the credential.
+function redactSecret(value) {
+    const s = String(value || '');
+    return s.length > 12 ? s.slice(0, 12) + '…(redacted)' : s;
+}
+
 // In-memory event ring for the UI webhook log (last 20 notifications)
 const webhookEvents = [];
 
@@ -42,23 +54,28 @@ app.use(express.json());
 // Mint a Bearer token carrying the app's full scope (no `permissions` filter) so
 // it includes LNK_POST_Create. secret = sha512(nonce + appKey); the App Key never
 // reaches the browser.
-async function getToken() {
+async function getToken(trace) {
     const nonce  = new Date().toISOString();
     const secret = crypto.createHash('sha512')
         .update(nonce + process.env.GP_APP_KEY)
         .digest('hex');
 
+    const reqBody = { app_id: process.env.GP_APP_ID, nonce, secret, grant_type: 'client_credentials' };
     const res  = await fetch(`${GP_BASE}/accesstoken`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-GP-Version': GP_VERSION },
-        body: JSON.stringify({
-            app_id:     process.env.GP_APP_ID,
-            nonce,
-            secret,
-            grant_type: 'client_credentials'
-        })
+        body: JSON.stringify(reqBody)
     });
     const data = await res.json();
+
+    // Record the call for the API Explorer (the App Key is never sent in the clear;
+    // the bearer token in the response is redacted).
+    if (trace) {
+        trace.push({ step: 'token', dir: 'request', label: 'Create Access Token', method: 'POST',
+                     endpoint: '/ucp/accesstoken', body: { ...reqBody, secret: redactSecret(secret) } });
+        trace.push({ step: 'token', dir: 'response', label: 'Create Access Token', status: res.status,
+                     body: { ...data, token: data.token ? redactSecret(data.token) : data.token } });
+    }
     if (!res.ok) {
         throw new Error(data.detailed_error_description || data.error_code || 'Access token request failed');
     }
@@ -80,18 +97,31 @@ function baseUrl(req) {
 function buildLinkBody({ amount, currency, config, reference, payer, base }) {
     const minor = String(Math.round(parseFloat(amount) * 100));
     const cfg   = config || {};
+    const cur   = currency || 'USD';
+    const country = COUNTRY_FOR[cur] || 'US';
 
-    // Value-add toggles map into transaction_configuration. 3-D Secure runs
-    // automatically on the hosted page; wallet/APM availability is account-
-    // provisioned, so these flags are best-effort hints (unknown fields are
-    // ignored by the API rather than rejected).
-    const transactionConfiguration = { country: 'US', channel: 'CNP' };
-    if (cfg.dcc)         transactionConfiguration.allow_dynamic_currency_conversion = true;
-    if (cfg.cardStorage) transactionConfiguration.enable_card_storage              = true;
+    // ── order.transaction_configuration ──────────────────────────────────────
+    // APMs are enabled by adding their method strings to allowed_payment_methods
+    // (alongside the mandatory "CARD"). currency_conversion_mode toggles DCC.
+    const apms = Array.isArray(cfg.apms) ? cfg.apms.filter(Boolean) : [];
+    const transactionConfiguration = {
+        channel:                  'CNP',
+        country,
+        capture_mode:             'AUTO',
+        currency_conversion_mode: cfg.dcc ? 'YES' : 'NO',
+        allowed_payment_methods:  ['CARD', ...apms]
+    };
+    // Card storage is best-effort (account-provisioned); unknown fields are ignored.
+    if (cfg.cardStorage) transactionConfiguration.enable_card_storage = true;
 
-    const allowedPaymentMethods = ['CARD'];
-    if (cfg.digitalWallets) allowedPaymentMethods.push('DIGITAL_WALLET');
-    if (cfg.apm)            allowedPaymentMethods.push('PAYPAL');
+    // ── order.payment_method_configuration ───────────────────────────────────
+    // 3-D Secure preference, plus digital wallets via an explicit provider list.
+    const paymentMethodConfiguration = {
+        authentication: { preference: cfg.threeds ? 'CHALLENGE_PREFERRED' : 'NO_CHALLENGE_REQUESTED' }
+    };
+    if (cfg.digitalWallets) {
+        paymentMethodConfiguration.digital_wallets = { provider: ['googlepay', 'applepay'] };
+    }
 
     return {
         account_name:    process.env.GP_ACCOUNT_NAME,   // transaction_processing_hpp
@@ -104,16 +134,16 @@ function buildLinkBody({ amount, currency, config, reference, payer, base }) {
         expiration_date: new Date(Date.now() + 3600 * 1000).toISOString(),
         order: {
             amount:    minor,
-            currency:  currency || 'USD',
+            currency:  cur,
             reference,
-            transaction_configuration: transactionConfiguration
+            transaction_configuration:    transactionConfiguration,
+            payment_method_configuration: paymentMethodConfiguration
         },
         transactions: {
-            amount:                 minor,
-            channel:                'CNP',
-            country:                'US',
-            currency:               currency || 'USD',
-            allowed_payment_methods: allowedPaymentMethods
+            amount:   minor,
+            channel:  'CNP',
+            country,
+            currency: cur
         },
         payer: {
             email: payer?.email || 'sandbox.payer@example.com',
@@ -146,10 +176,17 @@ app.post('/create-hpp-link', async (req, res) => {
         return res.status(400).json({ success: false, error: 'A positive amount is required' });
     }
 
+    // Records each GP API call (request + response) so the UI's API Explorer can
+    // replay the exact sequence — Create Access Token → Create a link.
+    const apiCalls = [];
+
     try {
-        const token     = await getToken();
+        const token     = await getToken(apiCalls);
         const reference = `order-${Date.now()}`;
         const body      = buildLinkBody({ amount, currency, config, reference, payer, base: baseUrl(req) });
+
+        apiCalls.push({ step: 'link', dir: 'request', label: 'Create a link', method: 'POST',
+                        endpoint: '/ucp/links', body });
 
         const gpRes = await fetch(`${GP_BASE}/links`, {
             method:  'POST',
@@ -161,15 +198,16 @@ app.post('/create-hpp-link', async (req, res) => {
             body: JSON.stringify(body)
         });
         const data = await gpRes.json();
+        apiCalls.push({ step: 'link', dir: 'response', label: 'Create a link', status: gpRes.status, body: data });
 
         if (!gpRes.ok) {
             const msg = data.detailed_error_description || data.error_code || 'Link creation failed';
-            return res.status(400).json({ success: false, error: msg });
+            return res.status(400).json({ success: false, error: msg, apiCalls });
         }
 
-        res.json({ success: true, id: data.id, url: data.url, reference });
+        res.json({ success: true, id: data.id, url: data.url, reference, apiCalls });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: err.message, apiCalls });
     }
 });
 
