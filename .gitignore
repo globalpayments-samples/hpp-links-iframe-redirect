@@ -5,5 +5,8 @@ node_modules/
 test-results/
 playwright-report/
 
+# Test-card verification harness output (screenshots + JSON/MD reports)
+tests/card-verification-report*/
+
 # Local env files
 .env

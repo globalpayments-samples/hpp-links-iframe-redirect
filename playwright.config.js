@@ -1,4 +1,4 @@
-// Playwright E2E config for the GP API Drop-In UI samples.
+// Playwright E2E config for the GP API Hosted Payment Page samples.
 //
 // One Playwright "project" per backend framework, each pointed at that
 // framework's base URL. The same specs in ./tests run against all five,
@@ -45,7 +45,7 @@ module.exports = defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 2 : 0,
-  // Serial in CI for stable, readable output; each access-token test hits the
+  // Serial in CI for stable, readable output; each create-hpp-link test hits the
   // live GP sandbox so we keep load low.
   workers: process.env.CI ? 1 : undefined,
   reporter: [

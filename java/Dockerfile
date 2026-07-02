@@ -21,7 +21,7 @@ RUN sed -i 's/port="8080"/port="8000"/' /usr/local/tomcat/conf/server.xml && \
     apt-get update && apt-get install -y --no-install-recommends wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Deploy as the ROOT context so /access-token, /process-payment, etc. resolve
+# Deploy as the ROOT context so /create-hpp-link, /payment-status, etc. resolve
 # at the server root (matching the Cargo cargo.context=/ that was used before).
 RUN rm -rf /usr/local/tomcat/webapps/*
 COPY --from=builder /app/target/ROOT.war /usr/local/tomcat/webapps/ROOT.war

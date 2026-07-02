@@ -2,23 +2,72 @@
 //
 // These run against each framework (see playwright.config.js projects) and
 // assert that all five expose an identical contract for the four endpoints:
-//   GET  /access-token     GET  /webhook-events
-//   POST /process-payment  POST /webhook
+//   POST /create-hpp-link  GET  /payment-status
+//   POST /webhook          GET  /webhook-events
 //
-// `/access-token` is a genuine integration check — it round-trips to the live
-// GP sandbox, so a pass proves credentials and connectivity are wired up.
+// `/create-hpp-link` is a genuine integration check — it mints a GP API token and
+// creates a real HOSTED_PAYMENT_PAGE link on the live sandbox, so a pass proves
+// credentials, the LNK_POST_Create permission, and connectivity are all wired up.
 
 const { test, expect } = require('@playwright/test');
 
-test.describe('GP API Drop-In backend endpoints', () => {
-  test('GET /access-token returns a sandbox-scoped token', async ({ request }) => {
-    const res = await request.get('/access-token');
+test.describe('GP API Hosted Payment Page backend endpoints', () => {
+  test('POST /create-hpp-link creates a real hosted link', async ({ request }) => {
+    const res = await request.post('/create-hpp-link', {
+      headers: { 'Content-Type': 'application/json' },
+      data: {
+        amount: '200.00', currency: 'GBP', displayMethod: 'iframe',
+        config: { threeds: true, digitalWallets: true, apms: ['testpay', 'paybybankapp'] },
+      },
+    });
     expect(res.ok(), `expected 2xx, got ${res.status()}`).toBeTruthy();
 
     const body = await res.json();
-    expect(typeof body.token).toBe('string');
-    expect(body.token.length).toBeGreaterThan(0);
-    expect(body.env).toBe('sandbox');
+    expect(body.success).toBe(true);
+    // GP returns a link id (LNK_…) and a hosted redirect URL to render/redirect to.
+    expect(body.id).toMatch(/^LNK_/);
+    expect(typeof body.url).toBe('string');
+    expect(body.url).toContain('globalpay');
+    expect(body.reference).toMatch(/^order-/);
+
+    // The API Explorer contract: token + link calls are captured (request +
+    // response), in order, with the bearer token redacted.
+    expect(Array.isArray(body.apiCalls)).toBeTruthy();
+    const steps = body.apiCalls.map((c) => `${c.step}/${c.dir}`);
+    expect(steps).toEqual(['token/request', 'token/response', 'link/request', 'link/response']);
+    const tokenRes = body.apiCalls.find((c) => c.step === 'token' && c.dir === 'response');
+    expect(String(tokenRes.body.token)).toContain('redacted');
+
+    // The corrected link request shape: digital wallets via provider list, APMs in
+    // order.transaction_configuration.allowed_payment_methods (alongside CARD).
+    const linkReq = body.apiCalls.find((c) => c.step === 'link' && c.dir === 'request');
+    const order = linkReq.body.order;
+    expect(order.payment_method_configuration.digital_wallets.provider).toContain('googlepay');
+    expect(order.transaction_configuration.allowed_payment_methods).toEqual(
+      expect.arrayContaining(['CARD', 'testpay', 'paybybankapp']));
+    expect(order.transaction_configuration.capture_mode).toBe('AUTO');
+  });
+
+  test('POST /create-hpp-link rejects a non-positive amount with 400', async ({ request }) => {
+    const res = await request.post('/create-hpp-link', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { amount: '0' },
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).success).toBe(false);
+  });
+
+  test('GET /payment-status returns a pending outcome for an unknown reference', async ({ request }) => {
+    const res = await request.get('/payment-status?reference=order-does-not-exist-' + Date.now());
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    // No transaction recorded for this reference yet → pending.
+    expect(body.outcome).toBe('pending');
+  });
+
+  test('GET /payment-status requires a reference (400)', async ({ request }) => {
+    const res = await request.get('/payment-status');
+    expect(res.status()).toBe(400);
   });
 
   test('GET /webhook-events returns an array', async ({ request }) => {
@@ -31,8 +80,8 @@ test.describe('GP API Drop-In backend endpoints', () => {
     const id = `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const event = {
       id,
-      type: 'TRANSACTION_CAPTURED',
-      content: [{ id: 'TRN-TEST', status: 'CAPTURED' }],
+      type: 'TRANSACTION_PREAUTHORIZED',
+      content: [{ id: 'TRN-TEST', status: 'PREAUTHORIZED' }],
     };
 
     const post = await request.post('/webhook', {
@@ -48,20 +97,7 @@ test.describe('GP API Drop-In backend endpoints', () => {
     expect(stored, 'posted webhook event should appear in /webhook-events').toBeTruthy();
     // Parity: every framework flattens the event at the top level so the live
     // UI log can read e.type / e.id directly.
-    expect(stored.type).toBe('TRANSACTION_CAPTURED');
+    expect(stored.type).toBe('TRANSACTION_PREAUTHORIZED');
     expect(stored.receivedAt, 'events are timestamped on receipt').toBeTruthy();
-  });
-
-  test('POST /process-payment rejects an invalid body with 400', async ({ request }) => {
-    // amount sent as a string to mirror the frontend (a number <input> .value);
-    // a zero amount and a missing payment_reference are both invalid.
-    const res = await request.post('/process-payment', {
-      headers: { 'Content-Type': 'application/json' },
-      data: { amount: '0' },
-    });
-
-    expect(res.status()).toBe(400);
-    const body = await res.json();
-    expect(body.success).toBe(false);
   });
 });

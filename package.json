@@ -8,7 +8,9 @@
     "dev": "node nodejs/server.js",
     "test": "playwright test",
     "test:ci": "playwright test",
-    "test:single": "playwright test --project"
+    "test:single": "playwright test --project",
+    "verify:cards": "node tests/verify-test-cards.mjs",
+    "verify:cards:repr": "node tests/verify-test-cards.mjs --repr"
   },
   "keywords": [
     "payments",
