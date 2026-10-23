@@ -10,7 +10,7 @@ never reaches the browser.
 
 ## Requirements
 
-- PHP 8.0 or later (with cURL)
+- PHP 8.2.35+, 8.3.36+, 8.4.27+, or 8.5.12+ (with cURL)
 - [Composer](https://getcomposer.org/)
 - A GP API sandbox account with an HPP/links-enabled app — [developer.globalpayments.com](https://developer.globalpayments.com)
 
@@ -38,7 +38,7 @@ never reaches the browser.
    ```
 2. Run the application:
    ```bash
-   ./run.sh        # runs: composer install && php -S 0.0.0.0:8000 router.php
+   ./run.sh        # runs: composer install, then the built-in server on 127.0.0.1 (HOST=0.0.0.0 to expose)
    ```
    Open http://localhost:8000.
 

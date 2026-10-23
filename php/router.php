@@ -4,7 +4,7 @@
  * Routes API paths to their handler files; all other requests
  * fall through to static file serving (index.html, assets, etc.).
  *
- * Usage:  php -S 0.0.0.0:8000 router.php
+ * Usage:  ./run.sh
  */
 
 declare(strict_types=1);
