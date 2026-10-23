@@ -108,7 +108,7 @@ Webhook HMAC-SHA256 verification (`X-GP-Signature`) is commented out in every ba
 ```bash
 ./run.sh                 # Node.js :8000 (default)
 ./run.sh python          # Python :8000
-./run.sh php             # PHP :8000 (php -S 0.0.0.0:$PORT router.php)
+./run.sh php             # PHP :8000 (loopback by default, HOST=0.0.0.0 to expose)
 ./run.sh java            # Java :8000 (mvn clean package cargo:run; port argument ignored)
 ./run.sh dotnet          # .NET :8000
 ./run.sh php 8080        # any framework on a custom port (not Java)
