@@ -27,5 +27,17 @@ foreach ($routes as [$routeMethod, $routePath, $file]) {
     }
 }
 
-// Let the built-in server handle static files
-return false;
+// Anything else: serve the page, its assets and the endpoint scripts only,
+// never .env, composer files, vendor/ or the server's own files
+$path = rawurldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/');
+$isAsset = preg_match('#^/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.(?:html|css|js|png|jpe?g|gif|svg|ico|webp|woff2?)$#', $path);
+$isEndpoint = preg_match('#^/[A-Za-z0-9_-]+\.php$#', $path) && $path !== '/router.php';
+$isHidden = preg_match('#(^|/)(\.|vendor/|node_modules/)#', $path);
+
+if ($path === '/' || (($isAsset || $isEndpoint) && !$isHidden)) {
+    return false;
+}
+
+http_response_code(404);
+echo 'Not Found';
+return true;

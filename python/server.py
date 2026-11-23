@@ -26,11 +26,19 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 load_dotenv()
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__, static_folder=None)
+
+# Only the page is public, not server.py, requirements.txt or .env
+PAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class GatewayError(Exception):
+    """An error the GP API sent back. Its message is shown on the page."""
+
 
 # In-memory ring-buffer for the live webhook event log (last 20 notifications)
 webhook_events = deque(maxlen=20)
@@ -76,7 +84,7 @@ def get_token(trace=None):
                       'status': resp.status_code,
                       'body': {**data, 'token': redact_secret(data['token'])} if data.get('token') else data})
     if not resp.ok:
-        raise RuntimeError(data.get('detailed_error_description') or data.get('error_code') or 'Access token request failed')
+        raise GatewayError(data.get('detailed_error_description') or data.get('error_code') or 'Access token request failed')
     return data['token']
 
 
@@ -165,7 +173,7 @@ def classify(status):
 # ─── GET / ───────────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    return app.send_static_file('index.html')
+    return send_from_directory(PAGE_DIR, 'index.html')
 
 
 # ─── POST /create-hpp-link ───────────────────────────────────────────────────
@@ -204,8 +212,13 @@ def create_hpp_link():
 
         return jsonify({'success': True, 'id': data.get('id'), 'url': data.get('url'),
                         'reference': reference, 'apiCalls': api_calls})
-    except Exception as exc:
+    except GatewayError as exc:
         return jsonify({'success': False, 'error': str(exc), 'apiCalls': api_calls}), 500
+    except Exception:
+        # Keep the details in the server log, the page only gets a generic message
+        app.logger.exception('create-hpp-link failed')
+        return jsonify({'success': False, 'error': 'Unexpected server error, see the server log',
+                        'apiCalls': api_calls}), 500
 
 
 # ─── GET /payment-status ─────────────────────────────────────────────────────
@@ -244,8 +257,11 @@ def payment_status():
                 'maskedNumber': card.get('masked_number_last4'),
             },
         })
-    except Exception as exc:
+    except GatewayError as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
+    except Exception:
+        app.logger.exception('payment-status failed')
+        return jsonify({'success': False, 'error': 'Unexpected server error, see the server log'}), 500
 
 
 # ─── POST /webhook ───────────────────────────────────────────────────────────

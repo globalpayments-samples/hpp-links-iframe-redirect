@@ -9,7 +9,7 @@ App Key never reaches the browser.
 
 ## Requirements
 
-- Node.js 18 or later (uses the built-in `fetch`)
+- Node.js 24 or later (uses the built-in `fetch`)
 - A GP API sandbox account with an HPP/links-enabled app — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure

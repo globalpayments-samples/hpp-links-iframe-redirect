@@ -10,7 +10,7 @@ never reaches the browser.
 
 ## Requirements
 
-- .NET SDK 9.0 or later
+- .NET SDK 10.0 or later
 - A GP API sandbox account with an HPP/links-enabled app — [developer.globalpayments.com](https://developer.globalpayments.com)
 
 ## Project Structure

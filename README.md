@@ -113,4 +113,4 @@ cp nodejs/.env.sample .env   # HPP sandbox credentials are pre-populated
 ## Prerequisites
 
 - A GP API sandbox account with an HPP/links-enabled app — [developer.globalpayments.com](https://developer.globalpayments.com)
-- The runtime for your chosen language (Node 18+, Python 3.9+, PHP 8+, Java 17+, .NET 8+)
+- The runtime for your chosen language (Node 24+, Python 3.9+, PHP 8+, Java 21+, .NET 10+)

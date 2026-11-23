@@ -20,10 +20,10 @@
 
 ### Python (Flask, direct GP API)
 - [`python/server.py`](python/server.py): `get_token()`, `base_url()`, `build_link_body()`, `classify()`, `create_hpp_link()`, `payment_status()`, `webhook()`, `get_webhook_events()`
-- [`python/requirements.txt`](python/requirements.txt): Flask 3.0.0, requests 2.31.0, python-dotenv 1.0.0, gunicorn 21.2.0
+- [`python/requirements.txt`](python/requirements.txt): Flask 3.1.3, requests 2.33.0, python-dotenv 1.2.2, gunicorn 21.2.0
 
 ### PHP (built-in server + router, direct GP API)
-- [`php/router.php`](php/router.php): maps the four routes to their handler files; everything else falls through to static files
+- [`php/router.php`](php/router.php): maps the four routes to their handler files; everything else is limited to the page, its assets and the endpoint scripts (no `.env`, composer files or `vendor/`)
 - [`php/gp.php`](php/gp.php): shared helpers `gp_token()`, `gp_request()`, `gp_base_url()`, `gp_classify()`, `gp_redact()`
 - [`php/create-hpp-link.php`](php/create-hpp-link.php): builds the link body inline and posts to `/ucp/links`
 - [`php/payment-status.php`](php/payment-status.php), [`php/webhook.php`](php/webhook.php), [`php/webhook-events.php`](php/webhook-events.php): status lookup and webhook log; PHP persists events to `php/webhook-log.json` (not git-ignored) because the built-in server keeps no memory between requests
@@ -31,11 +31,11 @@
 
 ### Java (Jakarta Servlet, direct GP API)
 - [`java/src/main/java/com/globalpayments/example/HostedPaymentServlet.java`](java/src/main/java/com/globalpayments/example/HostedPaymentServlet.java): one servlet on all four paths; `doGet()`/`doPost()` dispatch to `handleCreateHppLink()`, `handlePaymentStatus()`, `handleWebhook()`, `handleWebhookEvents()`; helpers `getToken()`, `baseUrl()`, `countryFor()`, `classify()`
-- [`java/pom.xml`](java/pom.xml): Jackson 2.17.1, `dotenv-java` 3.0.0, Jakarta Servlet 5.0.0, Java 21, Cargo on port 8000
+- [`java/pom.xml`](java/pom.xml): Jackson 2.18.10, `dotenv-java` 3.0.0, Jakarta Servlet 5.0.0, Java 21, Cargo on port 8000
 
 ### .NET (ASP.NET Core minimal API, direct GP API)
 - [`dotnet/Program.cs`](dotnet/Program.cs): `MapEndpoints()` registers the four routes; `GetTokenAsync()`, `BaseUrl()`, `CountryFor()`, `Apms()`, `Classify()`
-- [`dotnet/dotnet.csproj`](dotnet/dotnet.csproj): `DotEnv.Net` 3.2.1, net9.0; no GP SDK
+- [`dotnet/dotnet.csproj`](dotnet/dotnet.csproj): `DotEnv.Net` 3.2.1, net10.0; no GP SDK
 
 ### Frontend (one file, five copies)
 - `nodejs/index.html`, `python/index.html`, `php/index.html`, `java/src/main/webapp/index.html`, `dotnet/wwwroot/index.html` are byte-identical. Key functions: `readConfig()`, `proceed()`, `pollStatus()`, `openFullbleed()`, `handleReturn()`, `renderApiExplorer()`
@@ -45,7 +45,7 @@
 - [`docker-compose.yml`](docker-compose.yml) and [`docker-run.sh`](docker-run.sh): five services plus a Playwright `tests` service (profile `testing`)
 - [`tests/`](tests/api.spec.js) and [`playwright.config.js`](playwright.config.js): endpoint parity specs (`api.spec.js`, `ui.spec.js`) and the test-card harness (`verify-test-cards.mjs`, catalog in `test-cards.mjs`)
 - [`docs/HPP_REFERENCE.md`](docs/HPP_REFERENCE.md): wire-level reference, error fingerprints, value-add toggles; [`docs/TEST_CARDS.md`](docs/TEST_CARDS.md): card expectations
-- [`package.json`](package.json): root test scripts only (`@playwright/test` 1.53.1)
+- [`package.json`](package.json): root test scripts only (`@playwright/test` 1.55.1)
 
 ## API Surface
 
@@ -134,7 +134,7 @@ curl -X POST http://localhost:8000/webhook -H "Content-Type: application/json" \
 curl http://localhost:8000/webhook-events
 # Expected: [{"receivedAt":"...","id":"TRN_test","type":"TRANSACTION_PREAUTHORIZED"}]
 
-# Root devDependency is @playwright/test 1.53.1; the card harness imports playwright's chromium
+# Root devDependency is @playwright/test 1.55.1; the card harness imports playwright's chromium
 ./docker-run.sh test                    # Playwright parity suite against all five
 npm run verify:cards:repr               # about 12 cards through the real hosted page
 ```
