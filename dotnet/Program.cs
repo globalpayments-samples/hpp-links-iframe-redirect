@@ -68,7 +68,7 @@ public class Program
             var config    = body.TryGetProperty("config", out var cfg) ? cfg : default;
             var payer     = body.TryGetProperty("payer", out var p) ? p : default;
             var reference = $"order-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-            var minor     = decimal.Round(amount * 100, 0).ToString("0", CultureInfo.InvariantCulture);
+            var minor     = decimal.Round(amount * 100, 0, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
             var country   = CountryFor(currency);
 
             // order.transaction_configuration — APMs are enabled by adding their method
