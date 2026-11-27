@@ -210,7 +210,7 @@ public class Program
                     cardDetails = new
                     {
                         brand        = StringProp(card, "brand"),
-                        maskedNumber = StringProp(card, "masked_number_last4")
+                        maskedNumber = StringProp(card, "masked_number_last4") ?? StringProp(card, "masked_number_first6last4")
                     }
                 });
             }
