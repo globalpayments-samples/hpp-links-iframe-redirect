@@ -20,7 +20,7 @@
 
 ### Python (Flask, direct GP API)
 - [`python/server.py`](python/server.py): `get_token()`, `base_url()`, `build_link_body()`, `classify()`, `create_hpp_link()`, `payment_status()`, `webhook()`, `get_webhook_events()`
-- [`python/requirements.txt`](python/requirements.txt): Flask 3.1.3, requests 2.33.0, python-dotenv 1.2.2, gunicorn 21.2.0
+- [`python/requirements.txt`](python/requirements.txt): Flask 3.1.3, requests 2.33.0, python-dotenv 1.2.2, gunicorn 27.0.1
 
 ### PHP (built-in server + router, direct GP API)
 - [`php/router.php`](php/router.php): maps the four routes to their handler files; everything else is limited to the page, its assets and the endpoint scripts (no `.env`, composer files or `vendor/`)
