@@ -40,7 +40,7 @@ try {
         'outcome'       => gp_classify($txn['status'] ?? null),
         'status'        => $txn['status'] ?? null,
         'transactionId' => $txn['id'] ?? null,
-        'amount'        => $minor !== null ? ((int)$minor) / 100 : null,
+        'amount'        => ($minor !== null && $minor !== '') ? ((int)$minor) / 100 : null,
         'currency'      => $txn['currency'] ?? null,
         'cardDetails'   => [
             'brand'        => $card['brand'] ?? null,
