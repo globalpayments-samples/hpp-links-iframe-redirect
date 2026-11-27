@@ -299,7 +299,7 @@ public class HostedPaymentServlet extends HttpServlet {
             out.put("currency", txn.path("currency").asText(null));
             ObjectNode cardOut = out.putObject("cardDetails");
             cardOut.put("brand",        card.path("brand").asText(null));
-            cardOut.put("maskedNumber", card.path("masked_number_last4").asText(null));
+            cardOut.put("maskedNumber", card.path("masked_number_last4").asText(card.path("masked_number_first6last4").asText(null)));
             res.getWriter().write(mapper.writeValueAsString(out));
 
         } catch (Exception e) {
