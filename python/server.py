@@ -254,7 +254,7 @@ def payment_status():
             'currency':      txn.get('currency'),
             'cardDetails': {
                 'brand':        card.get('brand'),
-                'maskedNumber': card.get('masked_number_last4'),
+                'maskedNumber': card.get('masked_number_last4') or card.get('masked_number_first6last4'),
             },
         })
     except GatewayError as exc:
