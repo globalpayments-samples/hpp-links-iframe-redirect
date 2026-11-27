@@ -256,7 +256,7 @@ public class Program
         });
 
         // ─── GET /webhook-events ──────────────────────────────────────────────
-        app.MapGet("/webhook-events", () => Results.Ok(WebhookEvents.ToArray()));
+        app.MapGet("/webhook-events", () => Results.Ok(WebhookEvents.Reverse().ToArray()));
     }
 
     // ─── GP API token ─────────────────────────────────────────────────────────

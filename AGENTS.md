@@ -56,7 +56,7 @@
 | POST | `/webhook` | Receives GP notifications sent to the link's `status_url`; keeps the last 20 |
 | GET | `/webhook-events` | Returns the stored webhook events for the UI log |
 
-Paths are identical in all five, including PHP (via `router.php`). One known divergence: .NET stores events in a `ConcurrentQueue`, so `/webhook-events` returns them oldest first, while the other four return newest first.
+Paths are identical in all five, including PHP (via `router.php`). `/webhook-events` returns the newest event first in all five (.NET keeps them in a `ConcurrentQueue` and reverses it on read).
 
 ## Environment Variables
 
