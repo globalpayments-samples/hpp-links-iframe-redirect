@@ -236,7 +236,7 @@ Poll `GET {GP_BASE}/transactions?reference=<reference>` (or `GET {GP_BASE}/links
     "status": "PREAUTHORIZED",                 // success state for a 3DS hosted sale
     "type": "SALE",
     "amount": "20000", "currency": "USD",
-    "payment_method": { "card": { "brand": "VISA", "masked_number_last4": "5262" } }
+    "payment_method": { "card": { "brand": "VISA", "masked_number_first6last4": "426397XXXXXX5262" } }
 } ] }
 ```
 
