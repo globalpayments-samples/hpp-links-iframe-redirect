@@ -26,7 +26,7 @@
 - [`php/router.php`](php/router.php): maps the four routes to their handler files; everything else is limited to the page, its assets and the endpoint scripts (no `.env`, composer files or `vendor/`)
 - [`php/gp.php`](php/gp.php): shared helpers `gp_token()`, `gp_request()`, `gp_base_url()`, `gp_classify()`, `gp_redact()`
 - [`php/create-hpp-link.php`](php/create-hpp-link.php): builds the link body inline and posts to `/ucp/links`
-- [`php/payment-status.php`](php/payment-status.php), [`php/webhook.php`](php/webhook.php), [`php/webhook-events.php`](php/webhook-events.php): status lookup and webhook log; PHP persists events to `php/webhook-log.json` (not git-ignored) because the built-in server keeps no memory between requests
+- [`php/payment-status.php`](php/payment-status.php), [`php/webhook.php`](php/webhook.php), [`php/webhook-events.php`](php/webhook-events.php): status lookup and webhook log; PHP persists events to `php/webhook-log.json` (git-ignored) because the built-in server keeps no memory between requests
 - [`php/composer.json`](php/composer.json): only `vlucas/phpdotenv` ^5.5
 
 ### Java (Jakarta Servlet, direct GP API)
