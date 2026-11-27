@@ -44,7 +44,7 @@ try {
         'currency'      => $txn['currency'] ?? null,
         'cardDetails'   => [
             'brand'        => $card['brand'] ?? null,
-            'maskedNumber' => $card['masked_number_last4'] ?? null,
+            'maskedNumber' => $card['masked_number_last4'] ?? $card['masked_number_first6last4'] ?? null,
         ],
     ]);
 } catch (Throwable $e) {
