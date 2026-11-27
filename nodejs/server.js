@@ -248,7 +248,7 @@ app.get('/payment-status', async (req, res) => {
             currency:      txn.currency,
             cardDetails: {
                 brand:        card.brand,
-                maskedNumber: card.masked_number_last4
+                maskedNumber: card.masked_number_last4 || card.masked_number_first6last4
             }
         });
     } catch (err) {
