@@ -37,7 +37,10 @@ PAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class GatewayError(Exception):
-    """An error the GP API sent back. Its message is shown on the page."""
+    """The GP API refused the access token request. The details go to the server log."""
+
+
+TOKEN_ERROR = 'Could not get a GP API access token, check GP_APP_ID and GP_APP_KEY'
 
 
 # In-memory ring-buffer for the live webhook event log (last 20 notifications)
@@ -212,8 +215,9 @@ def create_hpp_link():
 
         return jsonify({'success': True, 'id': data.get('id'), 'url': data.get('url'),
                         'reference': reference, 'apiCalls': api_calls})
-    except GatewayError as exc:
-        return jsonify({'success': False, 'error': str(exc), 'apiCalls': api_calls}), 500
+    except GatewayError:
+        app.logger.exception('create-hpp-link: access token request failed')
+        return jsonify({'success': False, 'error': TOKEN_ERROR, 'apiCalls': api_calls}), 500
     except Exception:
         # Keep the details in the server log, the page only gets a generic message
         app.logger.exception('create-hpp-link failed')
@@ -257,8 +261,9 @@ def payment_status():
                 'maskedNumber': card.get('masked_number_last4'),
             },
         })
-    except GatewayError as exc:
-        return jsonify({'success': False, 'error': str(exc)}), 500
+    except GatewayError:
+        app.logger.exception('payment-status: access token request failed')
+        return jsonify({'success': False, 'error': TOKEN_ERROR}), 500
     except Exception:
         app.logger.exception('payment-status failed')
         return jsonify({'success': False, 'error': 'Unexpected server error, see the server log'}), 500
