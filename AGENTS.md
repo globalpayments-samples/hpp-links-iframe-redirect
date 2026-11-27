@@ -31,7 +31,7 @@
 
 ### Java (Jakarta Servlet, direct GP API)
 - [`java/src/main/java/com/globalpayments/example/HostedPaymentServlet.java`](java/src/main/java/com/globalpayments/example/HostedPaymentServlet.java): one servlet on all four paths; `doGet()`/`doPost()` dispatch to `handleCreateHppLink()`, `handlePaymentStatus()`, `handleWebhook()`, `handleWebhookEvents()`; helpers `getToken()`, `baseUrl()`, `countryFor()`, `classify()`
-- [`java/pom.xml`](java/pom.xml): Jackson 2.18.10, `dotenv-java` 3.0.0, Jakarta Servlet 5.0.0, Java 21, Cargo on port 8000
+- [`java/pom.xml`](java/pom.xml): Jackson 2.18.11, `dotenv-java` 3.0.0, Jakarta Servlet 5.0.0, Java 21, Cargo on port 8000
 
 ### .NET (ASP.NET Core minimal API, direct GP API)
 - [`dotnet/Program.cs`](dotnet/Program.cs): `MapEndpoints()` registers the four routes; `GetTokenAsync()`, `BaseUrl()`, `CountryFor()`, `Apms()`, `Classify()`
